@@ -39,6 +39,8 @@ website:
             text: "1. Measuring climate change"
           - href: projects/02-data-from-experiments/index.qmd
             text: "2. Data from experiments"
+          - href: projects/03-sugar-tax/index.qmd
+            text: "3. Measuring a sugar tax"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd

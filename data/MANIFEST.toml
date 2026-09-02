@@ -83,3 +83,55 @@ The 16 subject pools are cities, not countries: Copenhagen, Dnipropetrovs'k, Min
 St. Gallen, Muscat, Samara, Zurich, Boston, Bonn, Chengdu, Seoul, Riyadh, Nottingham, \
 Athens, Istanbul, Melbourne. Because this file is frozen, every figure in Project 2 \
 reproduces the book's published solutions exactly."""
+
+# ── Project 3: Measuring the effect of a sugar tax ───────────────────────────
+
+[[file]]
+project = 3
+name = "berkeley-store-price-survey"
+dest = "03/sps_public.xlsx"
+url = "https://drive.google.com/uc?export=download&id=1bL84gZfb0OLsIsYe9nfLXSCU1tTxJUQb"
+description = """
+Berkeley Store Price Survey from Silver et al. (2017): 2,175 shelf-price observations \
+across 26 stores and 247 products, in three waves (DEC2014, JUN2015, MAR2015). Two \
+sheets - `Data Dictionary` and `Data`. Columns include store_type (1 large supermarket, \
+2 small supermarket, 3 pharmacy, 4 gas station), taxed, supp, price_per_oz and \
+price_per_oz_c."""
+publisher = "UNC Global Food Research Program, via CORE Econ"
+licence = "Public-use file released with Silver et al. (2017), PLoS Med 14(4): e1002283"
+stable = true
+vintage = "2026-09-02"
+sha256 = "4fc446cbc56c29a13fd6947cfb9d9622eddae99a4aebd9c7610d16b8452e445c"
+notes = """
+Hosted on Google Drive rather than by CORE directly, so the URL above is the \
+`uc?export=download` form rather than the `/view` share link the book gives. Drive can \
+interpose an interstitial page on larger files; this one is small enough to download \
+unattended, but the checksum is what confirms a real spreadsheet arrived rather than \
+an HTML error page.
+
+This vintage differs from the one the book's solutions were written against in two \
+visible ways: the third wave is labelled MAR2015 here and MAR2016 there, and `supp` is \
+numeric 0/1 here where the book's code compares it to the string "Standard". The \
+published price means still reproduce exactly, so the underlying observations are the \
+same."""
+
+[[file]]
+project = 3
+name = "berkeley-weighted-prices"
+dest = "03/public_use_weighted_prices2.dta"
+url = "https://www.core-econ.org/wp-content/uploads/2022/06/public_use_weighted_prices2.dta"
+description = """
+Point-of-sale weighted average prices, 2,728 rows: year, quarter, month, location \
+(Berkeley / Non-Berkeley), beverage_group, tax status, price. Used for the \
+difference-in-differences comparison in Part 3.2."""
+publisher = "UNC Global Food Research Program, via CORE Econ"
+licence = "Public-use file released with Silver et al. (2017), PLoS Med 14(4): e1002283"
+stable = true
+vintage = "2026-09-02"
+sha256 = "81884402848faecb1da604f57dfae2a58a068a62fa6158ef968d7855e7b24838"
+notes = """
+Stata format, release 118, read with ReadStatTables.jl. CORE also publishes this table \
+as `doing-economics-project-3-2-datafile.xls`, but that is the legacy OLE2 .xls format \
+which XLSX.jl cannot read - it would need LibreOffice or Python to convert. The Stata \
+original is what the book's own R walk-through 3.7 uses, and it needs no conversion \
+step, so the repository stays pure Julia."""

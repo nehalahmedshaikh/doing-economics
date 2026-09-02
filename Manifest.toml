@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "f2d8f74ea7657a94809d7ed5735ce51ece04f0c3"
+project_hash = "7ffd3b4501ed8ae9a55157c73c5635e8aae263a4"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -405,7 +405,7 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.9.5"
 
 [[deps.DoingEconomics]]
-deps = ["AlgebraOfGraphics", "CSV", "CairoMakie", "DataFrames", "Dates", "DelimitedFiles", "Downloads", "Makie", "Printf", "SHA", "Statistics", "StatsBase", "TOML", "XLSX"]
+deps = ["AlgebraOfGraphics", "CSV", "CairoMakie", "DataFrames", "Dates", "DelimitedFiles", "Downloads", "HypothesisTests", "Makie", "Printf", "Random", "SHA", "Statistics", "StatsBase", "TOML", "XLSX"]
 path = "."
 uuid = "9bbc99c8-0b7f-4e27-95e6-e09c5d1c804e"
 version = "0.1.0"
@@ -1319,6 +1319,22 @@ weakdeps = ["FixedPointNumbers"]
 
     [deps.Ratios.extensions]
     RatiosFixedPointNumbersExt = "FixedPointNumbers"
+
+[[deps.ReadStatTables]]
+deps = ["CEnum", "DataAPI", "Dates", "InlineStrings", "MappedArrays", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "ReadStat_jll", "SentinelArrays", "StructArrays", "Tables"]
+git-tree-sha1 = "3d8734aa7633e891de3121cacc1c7ad393e3a27e"
+uuid = "52522f7a-9570-4e34-8ac6-c005c74d4b84"
+version = "0.4.0"
+weakdeps = ["DataFrames"]
+
+    [deps.ReadStatTables.extensions]
+    ReadStatTablesDataFramesExt = "DataFrames"
+
+[[deps.ReadStat_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
+git-tree-sha1 = "28e990e90ca643e99f3ec0188089c1816e8b46f4"
+uuid = "a4dc8951-f1cc-5499-9034-9ec1c3e64557"
+version = "1.1.9+0"
 
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
