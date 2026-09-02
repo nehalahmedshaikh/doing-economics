@@ -60,3 +60,26 @@ checked against the book's published solutions. NOAA's live series is at \
 https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_mm_mlo.csv and now extends well \
 past this file; it is the right source for current work, but it will not reproduce \
 the book's numbers."""
+
+# ── Project 2: Collecting and analysing data from experiments ────────────────
+
+[[file]]
+project = 2
+name = "public-goods-experiment"
+dest = "02/public-goods-experiment.xlsx"
+url = "https://www.core-econ.org/wp-content/uploads/2022/05/doing-economics-datafile-working-in-excel-project-2.xlsx"
+description = """
+Average per-period contributions in a public goods game across 16 subject pools, in two \
+conditions: without punishment (Figure 3 of Herrmann, Thoni and Gachter 2008) and with \
+punishment (Figure 2A). One sheet, two 10x16 blocks - periods 1-10 down, cities across, \
+headers on rows 2 and 16."""
+publisher = "CORE Econ, from Herrmann, Thoni and Gachter (2008), Science 319(5868)"
+licence = "Redistributed by CORE Econ for teaching use; underlying study (c) AAAS"
+stable = true
+vintage = "2026-09-02"
+sha256 = "bd044a94ad3ac53f1c3a85ca2a777cb1931b63cf7347903883b8996127fccba8"
+notes = """
+The 16 subject pools are cities, not countries: Copenhagen, Dnipropetrovs'k, Minsk, \
+St. Gallen, Muscat, Samara, Zurich, Boston, Bonn, Chengdu, Seoul, Riyadh, Nottingham, \
+Athens, Istanbul, Melbourne. Because this file is frozen, every figure in Project 2 \
+reproduces the book's published solutions exactly."""

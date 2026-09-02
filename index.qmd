@@ -25,7 +25,7 @@ Two departures:
 | # | Project | Status |
 |---|---------|--------|
 | 1 | [Measuring climate change](projects/01-measuring-climate-change/index.qmd) | Done |
-| 2 | Collecting and analysing data from experiments | Planned |
+| 2 | [Collecting and analysing data from experiments](projects/02-data-from-experiments/index.qmd) | Done |
 | 3 | Measuring the effect of a sugar tax | Planned |
 | 4 | Measuring wellbeing | Planned |
 | 5 | Measuring inequality: Lorenz curves and Gini coefficients | Planned |

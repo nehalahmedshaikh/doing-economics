@@ -28,7 +28,7 @@ Two deliberate departures:
 | # | Project | Status |
 |---|---------|--------|
 | 1 | [Measuring climate change](https://nehalahmedshaikh.github.io/doing-economics/projects/01-measuring-climate-change/) | ✅ Done |
-| 2 | Collecting and analysing data from experiments | Planned |
+| 2 | [Collecting and analysing data from experiments](https://nehalahmedshaikh.github.io/doing-economics/projects/02-data-from-experiments/) | ✅ Done |
 | 3 | Measuring the effect of a sugar tax | Planned |
 | 4 | Measuring wellbeing | Planned |
 | 5 | Measuring inequality: Lorenz curves and Gini coefficients | Planned |
@@ -62,7 +62,8 @@ quarto render projects/01-measuring-climate-change/index.qmd
 
 ```
 ├── projects/            one directory per empirical project
-│   └── 01-measuring-climate-change/index.qmd
+│   ├── 01-measuring-climate-change/index.qmd
+│   └── 02-data-from-experiments/index.qmd
 ├── src/DoingEconomics.jl   shared helpers: paths, chart theme, gini/lorenz,
 │                           frequency tables, index numbers, verified downloads
 ├── data/
@@ -80,13 +81,13 @@ quarto render projects/01-measuring-climate-change/index.qmd
 | Purpose | Packages |
 |---|---|
 | Data | [DataFrames.jl](https://dataframes.juliadata.org), [CSV.jl](https://csv.juliadata.org), [XLSX.jl](https://felipenoris.github.io/XLSX.jl) |
-| Statistics | [StatsBase.jl](https://juliastats.org/StatsBase.jl) |
+| Statistics | [StatsBase.jl](https://juliastats.org/StatsBase.jl), [HypothesisTests.jl](https://juliastats.org/HypothesisTests.jl) |
 | Charts | [AlgebraOfGraphics.jl](https://aog.makie.org) on [CairoMakie](https://docs.makie.org) |
 | Pages | [Quarto](https://quarto.org) with its native Julia engine |
 
 Packages are added per project, so the environment carries only what the completed work uses —
-regression and hypothesis-testing packages arrive with the projects that need them.
-`Manifest.toml` is committed for exact reproducibility.
+regression packages arrive with the projects that need them. `Manifest.toml` is committed for
+exact reproducibility.
 
 ## Data
 

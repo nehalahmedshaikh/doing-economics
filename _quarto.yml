@@ -37,6 +37,8 @@ website:
         contents:
           - href: projects/01-measuring-climate-change/index.qmd
             text: "1. Measuring climate change"
+          - href: projects/02-data-from-experiments/index.qmd
+            text: "2. Data from experiments"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd
@@ -50,6 +52,7 @@ website:
 format:
   html:
     theme: [cosmo, assets/custom.scss]
+    page-layout: full
     toc: true
     toc-depth: 3
     toc-expand: true

@@ -22,15 +22,27 @@ $border-color:    $hairline;
 
 $font-family-sans-serif: system-ui, -apple-system, "Segoe UI", sans-serif;
 $font-family-monospace: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
-$font-size-root: 16px;
 $toc-color: $ink-secondary;
+
+// The one font size in the project. Everything else - headings, code, tables,
+// captions - is a rem multiple of this.
+$font-size-root: 18px;
 
 /*-- scss:rules --*/
 
-// Recessive chrome: hairline rules only, never heavy borders.
-#quarto-sidebar,
-#quarto-margin-sidebar {
-  font-size: 0.9rem;
+// `page-layout: full` removes Quarto's symmetric outer gutters, which were
+// collecting as one empty band on the right. Cap the prose so lines stay near 90
+// characters on a wide monitor while tables and figures use the extra room.
+main.content {
+  max-width: 62rem;
+}
+
+// Keep the reading column and the on-this-page rail from drifting apart when the
+// window is very wide.
+@media (min-width: 1800px) {
+  main.content {
+    margin-left: 2rem;
+  }
 }
 
 .sidebar nav[role="doc-toc"] ul > li > a.active,
