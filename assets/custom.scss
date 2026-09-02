@@ -30,19 +30,19 @@ $font-size-root: 18px;
 
 /*-- scss:rules --*/
 
-// `page-layout: full` removes Quarto's symmetric outer gutters, which were
-// collecting as one empty band on the right. Cap the prose so lines stay near 90
-// characters on a wide monitor while tables and figures use the extra room.
-main.content {
-  max-width: 62rem;
-}
-
-// Keep the reading column and the on-this-page rail from drifting apart when the
-// window is very wide.
-@media (min-width: 1800px) {
-  main.content {
-    margin-left: 2rem;
-  }
+// Equal margin on the left and the right.
+//
+// The sidebar, the prose column and the on-this-page rail are all grid children
+// of #quarto-content, so capping that container and centring it moves the whole
+// block together. Left aligned (Quarto's default) every pixel of leftover space
+// collects on the right; centred, it splits evenly - and below the cap the grid
+// simply fills the window, so the margins are equal at zero too.
+//
+// The cap is chosen so the prose column lands near 1000px: roughly 95 characters
+// at an 18px root, with the sidebar and rail taking the rest.
+#quarto-content.page-columns {
+  max-width: 1440px;
+  margin-inline: auto;
 }
 
 .sidebar nav[role="doc-toc"] ul > li > a.active,
