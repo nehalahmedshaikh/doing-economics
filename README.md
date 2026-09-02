@@ -35,7 +35,7 @@ Two deliberate departures:
 | 6 | [Measuring management practices](https://nehalahmedshaikh.github.io/doing-economics/projects/06-management-practices/) | ✅ Done |
 | 7 | [Supply and demand](https://nehalahmedshaikh.github.io/doing-economics/projects/07-supply-and-demand/) | ✅ Done |
 | 8 | [Measuring the non-monetary cost of unemployment](https://nehalahmedshaikh.github.io/doing-economics/projects/08-unemployment-cost/) | ✅ Done |
-| 9 | Credit-excluded households in a developing country | Planned |
+| 9 | [Credit-excluded households in a developing country](https://nehalahmedshaikh.github.io/doing-economics/projects/09-credit-excluded/) | ✅ Done |
 | 10 | Characteristics of banking systems around the world | Planned |
 | 11 | Measuring willingness to pay for climate change mitigation | Planned |
 | 12 | Government policies and popularity: Hong Kong cash handout | Planned |
@@ -68,7 +68,8 @@ quarto render projects/01-measuring-climate-change/index.qmd          # data is 
 │   ├── 05-measuring-inequality/index.qmd
 │   ├── 06-management-practices/index.qmd
 │   ├── 07-supply-and-demand/index.qmd
-│   └── 08-unemployment-cost/index.qmd
+│   ├── 08-unemployment-cost/index.qmd
+│   └── 09-credit-excluded/index.qmd
 ├── src/DoingEconomics.jl   shared helpers: paths, chart theme, gini/lorenz,
 │                           frequency tables, index numbers, verified downloads
 ├── data/

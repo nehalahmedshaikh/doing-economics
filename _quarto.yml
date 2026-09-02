@@ -51,6 +51,8 @@ website:
             text: "7. Supply and demand"
           - href: projects/08-unemployment-cost/index.qmd
             text: "8. Cost of unemployment"
+          - href: projects/09-credit-excluded/index.qmd
+            text: "9. Credit-excluded households"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd

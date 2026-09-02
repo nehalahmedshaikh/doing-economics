@@ -32,7 +32,7 @@ Two departures:
 | 6 | [Measuring management practices](projects/06-management-practices/index.qmd) | Done |
 | 7 | [Supply and demand](projects/07-supply-and-demand/index.qmd) | Done |
 | 8 | [Measuring the non-monetary cost of unemployment](projects/08-unemployment-cost/index.qmd) | Done |
-| 9 | Credit-excluded households in a developing country | Planned |
+| 9 | [Credit-excluded households in a developing country](projects/09-credit-excluded/index.qmd) | Done |
 | 10 | Characteristics of banking systems around the world | Planned |
 | 11 | Measuring willingness to pay for climate change mitigation | Planned |
 | 12 | Government policies and popularity: Hong Kong cash handout | Planned |
@@ -68,7 +68,7 @@ MIT-licensed.
 
 ## The data
 
-The datasets are included in the repository under `data/raw/` (7.9 MB), so the projects run
+The datasets are included in the repository under `data/raw/` (20 MB), so the projects run
 offline. Licensing was checked per file before redistributing: most are public domain or CC BY.
 `data/MANIFEST.toml` records the publisher, licence, checksum and vintage of every file.
 
@@ -76,8 +76,10 @@ Credit to the publishers: **NASA GISS** and **NOAA** (climate), **CORE Econ** an
 **Herrmann, Thöni & Gächter** (public goods experiment), the **UNC Global Food Research
 Program** and **Silver et al.** (Berkeley sugar tax), the **UN Statistics Division** (national
 accounts), **UNDP** (Human Development Report), the **World Bank** (development indicators),
-**Our World in Data** (health and education), and the **Global Consumption and Income
-Project** (income distribution).
+**Our World in Data** (health and education), the **Global Consumption and Income
+Project** (income distribution), the **European Values Study** (life satisfaction), and the
+**Central Statistical Agency of Ethiopia** with the **World Bank LSMS-ISA** (the Ethiopian
+Socioeconomic Survey).
 
 That last one is the reason the data is committed rather than fetched: the GCIP site has been
 taken over by an unrelated operation, so the copy here — recovered from a pre-takeover Internet

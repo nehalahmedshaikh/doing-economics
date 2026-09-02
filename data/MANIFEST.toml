@@ -435,3 +435,28 @@ wave 3, the work attitudes and income appear only in waves 3 and 4, and children
 education only in wave 4. Applying the book's own filters gives 129,515 usable \
 respondents from 164,997, with the work-ethic variable defined for 73,912 of them - \
 exactly the waves 3 and 4 totals."""
+
+[[file]]
+project = 9
+name = "ethiopia-credit-ess"
+dest = "09/ethiopia-credit-ess.xlsx"
+url = "https://www.core-econ.org/wp-content/uploads/2022/05/doing-economics-working-in-excel-project-9-datafile.xlsx"
+publisher = "Ethiopian Socioeconomic Survey (CSA of Ethiopia and World Bank LSMS-ISA), via CORE Econ"
+licence = "LSMS-ISA microdata is CC BY 4.0; this extract is redistributed by CORE Econ for teaching use"
+stable = true
+vintage = "2026-09-02"
+sha256 = "925d94f7be0e4197b0ff0a3db8e92b91e7e038176d0f26961605ee5d1183e14d"
+notes = """
+Three sheets. "Data dictionary" documents 11 variables; "All households" holds 5,262 \
+households with 19 columns; "Got loan" holds the 1,480 that borrowed, with 21 columns \
+including the loan terms.
+
+The dictionary covers only the household characteristics. The credit variables that \
+Part 9.1 turns into indicators - loan_rejected, rejection_source1 and 2, did_not_apply, \
+reason_not_apply1 and 2 - are not described there; Section 14 of the ESS household \
+questionnaire has the question wording.
+
+Missing values are empty cells rather than a sentinel string, which XLSX.jl reads as \
+`missing` directly. That is unusual for this book and makes the file far less work than \
+Project 8's.
+"""
