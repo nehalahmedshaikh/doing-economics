@@ -334,3 +334,32 @@ notes = """
 Part 5.2 asks the reader to choose a gender education measure; this is the choice made, \
 stated on the project page. Coverage nominally runs from 1820 but is thin before the \
 1970s, so the project restricts to years with broad reporting."""
+
+# ── Project 6: Measuring management practices ────────────────────────────────
+
+[[file]]
+project = 6
+name = "world-management-survey"
+dest = "06/project-6-datafile.zip"
+url = "https://books.core-econ.org/doing-economics/downloads/project_6_datafile.zip"
+description = """
+World Management Survey extracts from Bloom, Genakos, Sadun and Van Reenen, \
+"Management Practices Across Firms and Countries". Two CSVs inside the zip: \
+`AMP_graph_manufacturing.csv`, 9,207 manufacturing firms across 20 countries with \
+management scores and the monitoring, targets and people sub-scores plus ownership, \
+employment, competition and manager education; and `AMP_graph_public.csv`, 1,963 \
+hospitals and schools across 7 countries."""
+publisher = "World Management Survey / Bloom et al., via CORE Econ"
+licence = "Redistributed by CORE Econ for teaching use"
+stable = true
+vintage = "2026-09-02"
+sha256 = "c5522fe483c58a4a0dfa8e43852faf01fcce08c91329ef5f26a55d07a7ec6ab4"
+notes = """
+Read in place with ZipFile.jl. Both CSVs carry trailing junk columns from the original \
+Stata export - an empty `Column20` and a fragment of the codebook that became a column \
+header - which the project drops on read.
+
+Every published figure reproduces: all 19 country mean management scores, all seven \
+hospital and five school means, and the confidence interval half-widths for the United \
+States and Chile. The book lists Great Britain where the data says UK, same value. The \
+one difference is the US firm count, 1,225 here against the book's 1,224."""
