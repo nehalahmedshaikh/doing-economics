@@ -399,3 +399,39 @@ The stylised supply and demand curves in Part 7.1 are a separate illustrative mo
 stated in natural logs, and reproduce the book's published prices exactly (163.44 and \
 160.29 at Q = 65). Elasticities are unaffected by the discrepancy: a log-log slope is a \
 percentage elasticity whatever base the logs use."""
+
+# ── Project 8: The non-monetary cost of unemployment ─────────────────────────
+
+[[file]]
+project = 8
+name = "european-values-study"
+dest = "08/life-satisfaction-evs.xlsx"
+url = "https://www.core-econ.org/wp-content/uploads/2018/06/doing-economics-datafile-working-in-excel-project-8.xlsx"
+description = """
+European Values Study extract, four waves (1981-1984, 1990-1993, 1999-2001, 2008-2010), \
+164,997 respondents in total. One sheet per wave plus a data dictionary. Variables: \
+S002EVS wave, S003 country, S006 respondent id, A170 life satisfaction, A009 subjective \
+health, C036-C041 work attitudes, X001 sex, X003 age, X007 marital status, X011_01 \
+children, X025A education, X028 employment status, X047D household income."""
+publisher = "European Values Study, via CORE Econ"
+licence = "Redistributed by CORE Econ for teaching use; EVS archived at GESIS"
+stable = true
+vintage = "2026-09-02"
+sha256 = "ff8e6660bd983e92a1c0c0e82f584d83cdcfe46208b363729965efddc4dc36f8"
+notes = """
+At 12 MB this is by far the largest file here, and it is the reason data/raw is now \
+about 20 MB rather than 8.
+
+Missing values are the string ".a". Several variables are stored as text and need \
+recoding: A170 carries "Dissatisfied" and "Satisfied" for the scale endpoints 1 and 10, \
+A009 and C036-C041 carry five-point verbal scales, X011_01 uses "No children" for zero, \
+and X025A packs a code and a description into one cell separated by " : ".
+
+Note C040 is absent - the work-attitude battery here is C036, C037, C038, C039 and \
+C041, five items, so the work-ethic average moves in steps of 0.2.
+
+The waves do not ask the same questions, which drives the cleaning: A009 is missing from \
+wave 3, the work attitudes and income appear only in waves 3 and 4, and children and \
+education only in wave 4. Applying the book's own filters gives 129,515 usable \
+respondents from 164,997, with the work-ethic variable defined for 73,912 of them - \
+exactly the waves 3 and 4 totals."""
