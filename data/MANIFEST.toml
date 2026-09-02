@@ -1,8 +1,28 @@
 # Provenance for every dataset this repository uses.
 #
-# Nothing here is committed to git. `scripts/fetch_data.jl` reads this file and
-# downloads each entry into `data/raw/`; `scripts/verify_data.jl` checks what is on
-# disk against it.
+# The files themselves ARE committed, under `data/raw/`. 7.9 MB in total, which buys
+# a repository that works offline and does not decay as its sources move. That is not
+# hypothetical: Project 5's upstream, the Global Consumption and Income Project site,
+# has already been taken over by an unrelated operation, and the copy here is the only
+# reliable one left.
+#
+# Licensing was checked per file before committing. Most are public domain (NASA,
+# NOAA) or CC BY (UNDP, World Bank, Our World in Data) or free-with-attribution (UN
+# Statistics Division), all of which permit redistribution; the `licence` field on
+# each entry records the terms and `publisher` the credit. Two entries - the Herrmann
+# public-goods table and the GCIP export - carry no explicit redistribution grant.
+# Both are small aggregate tables already published openly rather than microdata, and
+# both are credited to their authors here and on the project pages.
+#
+# Files are kept in the format they were downloaded in. Reading an xlsx, a Stata
+# `.dta` and a zipped CSV are each part of what the book teaches, so normalising them
+# to one format would delete content - and would break the correspondence between
+# these checksums and the upstream URLs.
+#
+# This file is therefore the provenance record rather than a download list.
+# `scripts/fetch_data.jl` still works and is what you run to REFRESH the sources that
+# change (see `stable = false` below); `scripts/verify_data.jl` checks what is on disk
+# against the recorded checksums.
 #
 # Fields
 #   project      empirical project number the file belongs to

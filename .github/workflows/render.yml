@@ -52,11 +52,13 @@ jobs:
         with:
           version: "1.10.18"
 
-      # The datasets are not in the repository, and several sources sit behind a
-      # registration wall, so CI cannot fetch them. The committed _freeze/ cache
-      # supplies the computed output instead; Quarto only re-executes a document
-      # whose source has changed, which would fail loudly here rather than
-      # silently publishing stale numbers.
+      # The datasets are committed, so a document whose source changed can be
+      # re-executed here rather than failing. The committed _freeze/ cache still
+      # serves everything unchanged, which is what keeps this job to a few minutes
+      # instead of recompiling the plotting stack on every push.
+      - name: Verify data against the manifest
+        run: julia --project=. scripts/verify_data.jl
+
       - name: Render
         run: quarto render --output-dir docs
 

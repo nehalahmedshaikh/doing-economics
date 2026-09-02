@@ -66,5 +66,19 @@ The projects, questions, and published solutions are the work of
 tasks in its own words and links to the source pages. The Julia code and prose are
 MIT-licensed.
 
-Datasets belong to their publishers (NASA GISS, NOAA, the World Bank). None are redistributed;
-`scripts/fetch_data.jl` downloads them from source.
+## The data
+
+The datasets are included in the repository under `data/raw/` (7.9 MB), so the projects run
+offline. Licensing was checked per file before redistributing: most are public domain or CC BY.
+`data/MANIFEST.toml` records the publisher, licence, checksum and vintage of every file.
+
+Credit to the publishers: **NASA GISS** and **NOAA** (climate), **CORE Econ** and
+**Herrmann, Thöni & Gächter** (public goods experiment), the **UNC Global Food Research
+Program** and **Silver et al.** (Berkeley sugar tax), the **UN Statistics Division** (national
+accounts), **UNDP** (Human Development Report), the **World Bank** (development indicators),
+**Our World in Data** (health and education), and the **Global Consumption and Income
+Project** (income distribution).
+
+That last one is the reason the data is committed rather than fetched: the GCIP site has been
+taken over by an unrelated operation, so the copy here — recovered from a pre-takeover Internet
+Archive capture — is the only reliable one left.

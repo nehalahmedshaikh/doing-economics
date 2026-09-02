@@ -13,3 +13,10 @@
 *.png  binary
 *.jpg  binary
 *.svg  text eol=lf
+
+# Datasets are byte-exact evidence, not source. `-text` disables end-of-line
+# normalisation so the committed bytes are the downloaded bytes and the SHA-256 in
+# data/MANIFEST.toml still verifies after a clone. Without this, the rule above
+# rewrites CRLF to LF in the CSVs on commit and every clone fails verify_data.jl -
+# while the machine that committed them keeps passing.
+data/raw/** -text

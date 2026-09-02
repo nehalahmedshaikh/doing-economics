@@ -85,26 +85,35 @@ Confirm the shared helpers work:
 julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-## 4. Fetch the data
+## 4. The data is already there
 
-Datasets are not committed. `data/MANIFEST.toml` records where each one comes from, its
-licence, and its checksum; the fetch script reads that file:
+The datasets are committed under `data/raw/` — 7.9 MB — so there is no download step. Clone
+and the projects run offline.
+
+This is deliberate rather than lazy. Project 5's upstream, the Global Consumption and Income
+Project site, has been taken over by an unrelated operation; the copy in this repository came
+from a pre-takeover Internet Archive capture and is the only reliable one left. Any project
+that depends on a live URL is one dead link from breaking.
+
+`data/MANIFEST.toml` is the provenance record — publisher, licence, SHA-256 and vintage for
+each file. To check your working copy against it:
 
 ```bash
-julia --project=. scripts/fetch_data.jl        # everything
-julia --project=. scripts/fetch_data.jl 1      # just project 1
-julia --project=. scripts/verify_data.jl       # check what's on disk
+julia --project=. scripts/verify_data.jl       # all of them
+julia --project=. scripts/verify_data.jl 1     # just project 1
 ```
 
-Two things the script will tell you about rather than fail on:
+Some sources are reissued over time — NASA GISS revises its whole temperature record monthly,
+the World Bank revises continuously. To pull current versions:
 
-- **Reissued sources.** Some series are republished on a schedule — NASA GISS revises its
-  whole temperature record monthly. The manifest records the vintage that produced the
-  committed figures, and the script reports when upstream has moved on. Your numbers may
-  differ from the rendered ones in the last decimal place.
-- **Registration-gated sources.** A few projects use data behind a signup (the World Values
-  Survey, the World Management Survey). These can't be downloaded unattended; the script
-  prints where to put the file and carries on.
+```bash
+julia --project=. scripts/fetch_data.jl        # refresh everything
+julia --project=. scripts/fetch_data.jl 1      # refresh project 1
+```
+
+The script enforces the checksum on sources marked frozen and reports drift on the rest, so
+you can see what moved. Numbers on the rendered pages come from the vintages recorded in the
+manifest; refreshing may shift them in the last decimal place.
 
 ## 5. Render
 

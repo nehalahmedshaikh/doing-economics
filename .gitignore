@@ -1,8 +1,9 @@
-# Data is fetched by scripts/fetch_data.jl, never committed.
-# See data/MANIFEST.toml for sources and checksums.
-data/raw/*
+# data/raw IS committed - 7.9 MB, and it makes the repository work offline and
+# outlive its sources. Project 5's upstream (the GCIP site) is already gone; the
+# copy here is the only reliable one. Provenance is in data/MANIFEST.toml.
+#
+# data/processed is derived and always reproducible from data/raw, so it is not.
 data/processed/*
-!data/raw/.gitkeep
 !data/processed/.gitkeep
 
 # Quarto

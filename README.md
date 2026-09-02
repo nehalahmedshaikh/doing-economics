@@ -54,8 +54,7 @@ git clone https://github.com/nehalahmedshaikh/doing-economics
 cd doing-economics
 
 julia --project=. -e 'using Pkg; Pkg.instantiate()'   # exact versions from Manifest.toml
-julia --project=. scripts/fetch_data.jl 1             # download project 1's data
-quarto render projects/01-measuring-climate-change/index.qmd
+quarto render projects/01-measuring-climate-change/index.qmd          # data is included
 ```
 
 ## Layout
@@ -70,10 +69,10 @@ quarto render projects/01-measuring-climate-change/index.qmd
 │                           frequency tables, index numbers, verified downloads
 ├── data/
 │   ├── MANIFEST.toml    every dataset: url, checksum, licence, vintage
-│   └── raw/             downloaded, never committed
+│   └── raw/             the datasets themselves, committed (7.9 MB)
 ├── scripts/
-│   ├── fetch_data.jl    download and verify everything in the manifest
-│   └── verify_data.jl   check local files against it
+│   ├── fetch_data.jl    re-download to refresh the series that change
+│   └── verify_data.jl   check the working copy against the manifest
 ├── reference/           R → Julia translation table, statistical definitions
 └── test/runtests.jl     tests for the statistical helpers
 ```
@@ -93,10 +92,21 @@ exact reproducibility.
 
 ## Data
 
-No datasets are committed. `data/MANIFEST.toml` records where each file comes from, its
-publisher, licence, and SHA-256. `fetch_data.jl` enforces the checksum for frozen sources,
-reports drift for sources that are legitimately reissued, and prints manual instructions for
-the few behind a registration wall.
+The datasets are committed, under `data/raw/` — 7.9 MB, which makes the repository work
+offline and stops it decaying as sources move. That is not hypothetical: Project 5's
+upstream, the Global Consumption and Income Project site, has been taken over by an
+unrelated operation, and the copy here came from a pre-takeover Internet Archive capture.
+
+`data/MANIFEST.toml` is the provenance record — publisher, licence, SHA-256 and vintage for
+every file. Licensing was checked per file: most are public domain (NASA, NOAA) or CC BY
+(UNDP, World Bank, Our World in Data) or free-with-attribution (UN Statistics Division).
+
+Files are kept in the format they arrived in. Reading an xlsx, a Stata `.dta` and a zipped
+CSV are each part of what the book teaches, so they are not normalised.
+
+`scripts/verify_data.jl` checks the working copy against the manifest.
+`scripts/fetch_data.jl` re-downloads, which is what you run to refresh the series that
+change — NASA GISS is reissued monthly, the World Bank revises continuously.
 
 ## Licence
 
