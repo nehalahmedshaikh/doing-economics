@@ -43,6 +43,8 @@ website:
             text: "3. Measuring a sugar tax"
           - href: projects/04-measuring-wellbeing/index.qmd
             text: "4. Measuring wellbeing"
+          - href: projects/05-measuring-inequality/index.qmd
+            text: "5. Measuring inequality"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd
