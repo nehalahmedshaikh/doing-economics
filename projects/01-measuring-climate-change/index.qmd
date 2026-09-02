@@ -631,9 +631,15 @@ final_anomaly = june.anomaly[end]
  co2_index = 100 * june.Trend[end] / june.Trend[1])
 ```
 
-Temperature reaches an index near 1,400 against CO₂'s 130 — less comparable than what we
-started with. The figure is also unstable: had 1958's anomaly been 0.01 °C, the index would
-read 7,000, with nothing about the climate different.
+Temperature reaches an index of `{julia} round(Int, 100 * final_anomaly / base_anomaly)`
+against CO₂'s `{julia} round(Int, 100 * june.Trend[end] / june.Trend[1])` — less comparable
+than what we started with. The figure is also unstable: had 1958's anomaly been 0.01 °C
+instead of `{julia} base_anomaly`, the index would read
+`{julia} round(Int, 100 * final_anomaly / 0.01)`, with nothing about the climate different.
+
+Those four numbers are inline expressions rather than typed-in values, for the same reason the
+chart title above is computed: GISTEMP is reissued monthly, so a figure written into the prose
+is wrong as soon as the data is refreshed.
 
 Index numbers work when both series have a meaningful zero and a base value away from it.
 Anomalies fail that, so the two-panel chart above is the right presentation.

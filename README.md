@@ -34,7 +34,7 @@ Two deliberate departures:
 | 5 | [Measuring inequality: Lorenz curves and Gini coefficients](https://nehalahmedshaikh.github.io/doing-economics/projects/05-measuring-inequality/) | ✅ Done |
 | 6 | [Measuring management practices](https://nehalahmedshaikh.github.io/doing-economics/projects/06-management-practices/) | ✅ Done |
 | 7 | [Supply and demand](https://nehalahmedshaikh.github.io/doing-economics/projects/07-supply-and-demand/) | ✅ Done |
-| 8 | Measuring the non-monetary cost of unemployment | Planned |
+| 8 | [Measuring the non-monetary cost of unemployment](https://nehalahmedshaikh.github.io/doing-economics/projects/08-unemployment-cost/) | ✅ Done |
 | 9 | Credit-excluded households in a developing country | Planned |
 | 10 | Characteristics of banking systems around the world | Planned |
 | 11 | Measuring willingness to pay for climate change mitigation | Planned |
@@ -67,15 +67,17 @@ quarto render projects/01-measuring-climate-change/index.qmd          # data is 
 │   ├── 04-measuring-wellbeing/index.qmd
 │   ├── 05-measuring-inequality/index.qmd
 │   ├── 06-management-practices/index.qmd
-│   └── 07-supply-and-demand/index.qmd
+│   ├── 07-supply-and-demand/index.qmd
+│   └── 08-unemployment-cost/index.qmd
 ├── src/DoingEconomics.jl   shared helpers: paths, chart theme, gini/lorenz,
 │                           frequency tables, index numbers, verified downloads
 ├── data/
 │   ├── MANIFEST.toml    every dataset: url, checksum, licence, vintage
-│   └── raw/             the datasets themselves, committed (7.9 MB)
+│   └── raw/             the datasets themselves, committed (20 MB)
 ├── scripts/
 │   ├── fetch_data.jl    re-download to refresh the series that change
-│   └── verify_data.jl   check the working copy against the manifest
+│   ├── verify_data.jl   check the working copy against the manifest
+│   └── audit_prose.jl   flag numbers asserted in prose that no cell computed
 ├── reference/           R → Julia translation table, statistical definitions
 └── test/runtests.jl     tests for the statistical helpers
 ```
@@ -95,7 +97,7 @@ exact reproducibility.
 
 ## Data
 
-The datasets are committed, under `data/raw/` — 7.9 MB, which makes the repository work
+The datasets are committed, under `data/raw/` — 20 MB, which makes the repository work
 offline and stops it decaying as sources move. That is not hypothetical: Project 5's
 upstream, the Global Consumption and Income Project site, has been taken over by an
 unrelated operation, and the copy here came from a pre-takeover Internet Archive capture.
@@ -110,6 +112,27 @@ CSV are each part of what the book teaches, so they are not normalised.
 `scripts/verify_data.jl` checks the working copy against the manifest.
 `scripts/fetch_data.jl` re-downloads, which is what you run to refresh the series that
 change — NASA GISS is reissued monthly, the World Bank revises continuously.
+
+## Checking the write-ups
+
+Every table and figure is computed at render time, and each project is checked against the
+book's published solutions on the page itself. The weak point is the opposite direction:
+a number typed into a *sentence* is not checked by anything.
+
+`scripts/audit_prose.jl` closes that gap. It extracts every number asserted in a project's
+prose and every number the rendered page actually computed, then reports the prose figures
+that no computed value rounds to, with the nearest computed value alongside:
+
+```
+julia --project=. scripts/audit_prose.jl               # all projects
+julia --project=. scripts/audit_prose.jl 08-unemployment-cost
+```
+
+It is a report, not a gate. Cross-references ("Part 8.2"), statistical constants, values
+explicitly attributed to the book, and arithmetic derived from two printed figures all show
+up as flags and are fine. Running it across the eight completed projects flagged 106 of 645
+prose numbers, of which two locations were genuine errors — both since fixed, and the more
+vintage-sensitive one replaced with inline expressions so the sentence recomputes itself.
 
 ## Licence
 

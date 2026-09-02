@@ -62,6 +62,12 @@ jobs:
       - name: Render
         run: quarto render --output-dir docs
 
+      # Fails only on a rendered table that lost rows behind a `⋮` — Quarto displays
+      # results with `:limit => true`, which silently elides long tables. The prose-number
+      # flags this also prints need a human read and do not affect the exit code.
+      - name: Audit the rendered pages
+        run: julia --project=. scripts/audit_prose.jl
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
