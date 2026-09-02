@@ -1,0 +1,62 @@
+# Provenance for every dataset this repository uses.
+#
+# Nothing here is committed to git. `scripts/fetch_data.jl` reads this file and
+# downloads each entry into `data/raw/`; `scripts/verify_data.jl` checks what is on
+# disk against it.
+#
+# Fields
+#   project      empirical project number the file belongs to
+#   dest         path under data/raw/
+#   url          direct download location
+#   publisher    who produces the data
+#   licence      terms the publisher releases it under
+#   stable       true  -> upstream file is frozen; a checksum mismatch is an error
+#                false -> upstream is reissued over time (e.g. NASA GISS is updated
+#                         monthly); `sha256` records the vintage that produced the
+#                         committed results, and drift is reported, not fatal
+#   vintage      date the recorded checksum was observed
+#   manual       true -> registration required, cannot be fetched unattended;
+#                        `instructions` explains what to do by hand
+
+# ── Project 1: Measuring climate change ──────────────────────────────────────
+
+[[file]]
+project = 1
+name = "giss-nh-temperature"
+dest = "01/NH.Ts+dSST.csv"
+url = "https://data.giss.nasa.gov/gistemp/tabledata_v4/NH.Ts+dSST.csv"
+description = """
+GISTEMP v4 combined land-surface air and sea-surface water temperature anomalies, \
+Northern-Hemisphere mean, by month, season and year, from 1880. Anomalies are \
+relative to the 1951-1980 base period. Missing values are coded `***`."""
+publisher = "NASA Goddard Institute for Space Studies"
+licence = "Public domain (work of the US federal government)"
+stable = false
+vintage = "2026-09-02"
+sha256 = "2dbcf9bcc469f99a35560868f1a0e452e4626acb88bb2076c14b6ad6cab31ab7"
+notes = """
+GISTEMP is reissued every month, and each release revises the whole series slightly \
+as station records are corrected. Figures computed from a later vintage will differ \
+from the ones committed here in the last decimal place. The project page states the \
+vintage it was rendered against."""
+
+[[file]]
+project = 1
+name = "noaa-mauna-loa-co2"
+dest = "01/1_CO2-data.xlsx"
+url = "https://www.core-econ.org/wp-content/uploads/2018/03/1_CO2-data.xlsx"
+description = """
+Monthly atmospheric CO2 concentration measured at Mauna Loa Observatory, Hawaii, \
+from March 1958: monthly average, a seasonally interpolated series, and a \
+trend series with the seasonal cycle removed."""
+publisher = "NOAA Global Monitoring Laboratory, via CORE Econ"
+licence = "NOAA data are public domain; this snapshot is redistributed by CORE Econ"
+stable = true
+vintage = "2026-09-02"
+sha256 = "8efaada2e76bd4774cd57e363b83d54903c1e7ce1bd8a8d425a52e60eaba2c8f"
+notes = """
+This is the frozen 2018 snapshot the book links to, used so that results here can be \
+checked against the book's published solutions. NOAA's live series is at \
+https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_mm_mlo.csv and now extends well \
+past this file; it is the right source for current work, but it will not reproduce \
+the book's numbers."""

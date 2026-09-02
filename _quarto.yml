@@ -1,0 +1,74 @@
+project:
+  type: website
+  output-dir: docs
+  render:
+    - index.qmd
+    - setup.qmd
+    - projects/**/*.qmd
+    - reference/**/*.qmd
+
+website:
+  title: "Doing Economics in Julia"
+  description: >-
+    Julia implementations of the empirical projects in CORE Econ's Doing Economics.
+  site-url: https://nehalahmedshaikh.github.io/doing-economics
+  repo-url: https://github.com/nehalahmedshaikh/doing-economics
+  repo-actions: [source, issue]
+  page-navigation: true
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: setup.qmd
+        text: Setup
+      - href: reference/r-to-julia.qmd
+        text: R → Julia
+  sidebar:
+    style: docked
+    collapse-level: 2
+    contents:
+      - section: "Getting started"
+        contents:
+          - href: index.qmd
+            text: Overview
+          - href: setup.qmd
+            text: Setup
+      - section: "Empirical projects"
+        contents:
+          - href: projects/01-measuring-climate-change/index.qmd
+            text: "1. Measuring climate change"
+      - section: "Reference"
+        contents:
+          - href: reference/r-to-julia.qmd
+            text: "R → Julia"
+          - href: reference/technical-reference.qmd
+            text: "Technical reference"
+  page-footer:
+    left: "Code MIT-licensed. Projects and solutions © CORE Econ."
+    right: "Built with Quarto and Julia."
+
+format:
+  html:
+    theme: [cosmo, assets/custom.scss]
+    toc: true
+    toc-depth: 3
+    toc-expand: true
+    number-sections: false
+    code-tools: true
+    code-copy: true
+    code-overflow: wrap
+    highlight-style: github
+    fig-width: 7.5
+    fig-height: 4.5
+    fig-format: svg
+    fig-dpi: 200
+    tbl-cap-location: bottom
+    link-external-newwindow: true
+
+execute:
+  # Computed output is cached and committed, so CI can build the site without the
+  # datasets - several of which are behind registration and cannot be fetched
+  # unattended. Delete a project's _freeze entry to force a re-run.
+  freeze: auto
+  warning: true
+  error: false

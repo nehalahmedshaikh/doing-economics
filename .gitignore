@@ -1,0 +1,29 @@
+# Data is fetched by scripts/fetch_data.jl, never committed.
+# See data/MANIFEST.toml for sources and checksums.
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Quarto
+/.quarto/
+/docs/
+*_files/
+*.html
+!reference/*.html
+
+# Julia
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+/deps/deps.jl
+LocalPreferences.toml
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+**/*.quarto_ipynb

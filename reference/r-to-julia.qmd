@@ -1,0 +1,136 @@
+---
+title: "R → Julia"
+subtitle: "Translating the book's walk-throughs"
+engine: markdown
+---
+
+The book's R walk-throughs are its closest thing to a reference implementation, so they are
+what this port translates from. The mapping accumulates here project by project, noting where
+the two languages genuinely disagree rather than merely spell things differently.
+
+## Reading data
+
+| R | Julia |
+|---|---|
+| `read.csv("f.csv")` | `CSV.read("f.csv", DataFrame)` |
+| `read.csv("f.csv", skip = 1)` | `CSV.read("f.csv", DataFrame; header = 2)` |
+| `read.csv("f.csv", na.strings = "***")` | `CSV.read("f.csv", DataFrame; missingstring = "***")` |
+| `read_excel("f.xlsx")` | `XLSX.readtable("f.xlsx", "Sheet1") \|> DataFrame` |
+| `setwd("...")` | not needed — `rawpath()` resolves from the repo root |
+| `head(df)` | `first(df, 6)` |
+| `str(df)` | `describe(df)` |
+| `nrow(df)` / `ncol(df)` | `nrow(df)` / `ncol(df)` |
+| `names(df)[1] <- "Year"` | `rename!(df, 1 => :Year)` |
+
+`skip = 1` becomes `header = 2`, not `skipto`. R counts lines to throw away; CSV.jl names the
+line the header is on. Off-by-one here silently turns your header row into data.
+
+## Subsetting and reshaping
+
+| R | Julia |
+|---|---|
+| `df[df$Month == 6, ]` | `subset(df, :Month => ByRow(==(6)))` |
+| `subset(df, Year >= 1951 & Year <= 1980)` | `subset(df, :Year => ByRow(y -> 1951 <= y <= 1980))` |
+| `df[, c("Jun", "Jul", "Aug")]` | `df[:, [:Jun, :Jul, :Aug]]` |
+| `unlist(df[, c("Jun", "Jul")])` | `vec(Matrix(df[:, [:Jun, :Jul]]))` |
+| `merge(a, b)` | `innerjoin(a, b; on = :Year)` |
+| `factor(x)` | `categorical(x)` |
+| `cut(x, breaks)` | `cut(x, breaks)` (CategoricalArrays.jl) |
+| `na.rm = TRUE` | `skipmissing(x)` |
+
+`merge(a, b)` with no `by` guesses the join key from shared column names. `innerjoin` makes
+you name it. The explicit version is worth the extra characters — a silent join on the wrong
+shared column is a hard bug to see.
+
+## Summary statistics
+
+| R | Julia |
+|---|---|
+| `mean(x)` | `mean(x)` |
+| `var(x)` | `var(x)` |
+| `sd(x)` | `std(x)` |
+| `quantile(x, c(0.3, 0.7))` | `quantile(x, [0.3, 0.7])` |
+| `mean(x > 0.5)` | `mean(x .> 0.5)` |
+| `cor(x, y)` | `cor(x, y)` |
+| `mosaic::mean(y ~ g)` | `combine(groupby(df, :g), :y => mean)` |
+| `mosaic::var(y ~ g)` | `combine(groupby(df, :g), :y => var)` |
+| `table(x)` | `freqtable(x)` or `countmap(x)` |
+
+Two that agree where you might expect them not to:
+
+- **`var` is the sample variance in both**, dividing by `n − 1`. R has no option; Julia's
+  `var(x; corrected = false)` gives the population form. The book means the sample variance,
+  so the default is right.
+- **`quantile` uses the same default.** R's `type = 7` and Julia's default are the same
+  linear-interpolation rule, so deciles match exactly. R offers nine types and Julia takes
+  `alpha`/`beta` parameters; neither default needs touching here.
+
+The `mosaic` package's formula interface (`mean(anomaly ~ period)`) is the one idiom with no
+direct Julia counterpart. `groupby` + `combine` does the same job more verbosely and more
+explicitly — you name the output column, so a table of grouped statistics arrives already
+labelled.
+
+## Charts
+
+| R | Julia (Makie / AlgebraOfGraphics) |
+|---|---|
+| `plot(x, y, type = "l")` | `lines(x, y)` |
+| `plot(x, y)` | `scatter(x, y)` |
+| `lines(x, y2)` | `lines!(ax, x, y2)` |
+| `abline(h = 0)` | `hlines!(ax, 0)` |
+| `abline(v = 1980)` | `vlines!(ax, 1980)` |
+| `text(x, y, "label")` | `text!(ax, x, y; text = "label")` |
+| `legend("topleft", ...)` | `Legend(fig[1, 2], ax)` or `axislegend(ax)` |
+| `hist(x, breaks = seq(...))` | `hist(x; bins = ...)`, or `freqtable_binned` + `barplot` |
+| `col = `, `lwd = `, `xlab = ` | `color = `, `linewidth = `, `xlabel = ` |
+| `mfrow = c(2, 2)` | `fig[i, j]` grid positions |
+| `ts(x, start = c(1880, 1), frequency = 12)` | keep `Year`/`Month` columns; build a `Date` |
+
+The `!` suffix is the whole mental model: `lines` creates a new axis, `lines!` adds to an
+existing one. R's `plot` / `lines` split does the same thing without saying so.
+
+`ts()` objects have no Julia equivalent and aren't missed. R needs them so that `plot` knows
+to label the x-axis in years; in Julia you construct a real date column and the axis follows
+from the data.
+
+### The dual-axis chart
+
+Walk-through 1.8 plots temperature and CO₂ on one set of axes with two different y-scales,
+using `par(new = TRUE)` to draw the second series over the first and `axis(side = 4)` to give
+it its own scale on the right.
+
+This port does not reproduce it. Where the two scales line up is an arbitrary choice by
+whoever drew the chart, and moving one changes how strongly the series appear to track without
+changing a number.
+
+Three alternatives:
+
+- **Two stacked panels** sharing an x-axis; each series keeps its own units.
+- **Index both to a common base** — `index_to(x, 1)` puts both at 100 in the first period —
+  and plot on one axis. Requires both series to have a meaningful zero, which rules it out for
+  anomaly data (see Project 1 Q3.4).
+- **State the correlation coefficient**, which is what the question asks for.
+
+Project 1 uses the two-panel form and reports the correlation.
+
+## Missing values
+
+| R | Julia |
+|---|---|
+| `NA` | `missing` |
+| `is.na(x)` | `ismissing(x)` |
+| `mean(x, na.rm = TRUE)` | `mean(skipmissing(x))` |
+| `na.strings = "***"` | `missingstring = "***"` |
+| `complete.cases(df)` | `dropmissing(df)` |
+
+The difference that matters: R's aggregate functions mostly default to *propagating* `NA` and
+offer `na.rm` to opt out; Julia has no such flag, and you wrap the input in `skipmissing`
+instead. Julia's version is noisier to write and harder to get wrong by accident — you cannot
+drop missing data without a visible `skipmissing` at the call site.
+
+## Numbers in the data
+
+The GISS temperature file writes values as `-.37` rather than `-0.37`, and codes missing as
+`***`. R's `read.csv` handles the leading-dot form because `as.numeric` does; CSV.jl parses it
+too. Neither needs special handling, but it is worth knowing the file looks like that before
+concluding a parse has gone wrong.

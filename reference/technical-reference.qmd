@@ -1,0 +1,154 @@
+---
+title: "Technical reference"
+subtitle: "The measures the projects rely on"
+engine: markdown
+---
+
+Definitions for the measures used across the projects, as this repository computes them. The
+purpose is to pin down the choices with more than one defensible answer — which denominator,
+which interpolation rule, which interval end is closed — since those are where two
+correct-looking implementations diverge.
+
+Functions from `src/DoingEconomics.jl` are named where they apply.
+
+## Centre and spread
+
+**Mean.** The arithmetic average, $\bar{x} = \frac{1}{n}\sum_i x_i$. `mean(x)`.
+
+**Variance.** The *sample* variance, dividing by $n - 1$:
+
+$$s^2 = \frac{1}{n-1}\sum_i (x_i - \bar{x})^2$$
+
+`var(x)`. Julia's default and R's only option, so the two agree. The $n - 1$ denominator makes
+the estimator unbiased, correcting for deviations being measured from the sample mean rather
+than the unknown population mean. `var(x; corrected = false)` gives the population form, which
+is not what the book means.
+
+Variance is in squared units — a variance of 0.07 on temperature anomalies is 0.07 °C² — so
+Project 1 uses it comparatively, asking whether variance is larger in one period than another.
+
+**Standard deviation.** $s = \sqrt{s^2}$, back in the original units. `std(x)`.
+
+## Position in a distribution
+
+**Quantile.** The value below which a given fraction of observations fall. The $p$-th
+quantile of $n$ sorted observations is found at position $h = (n-1)p + 1$, interpolating
+linearly between the two neighbouring observations when $h$ is not an integer.
+
+`quantile(x, p)`. This is R's `type = 7` and Julia's default, so deciles computed here match
+the book's exactly.
+
+**Decile.** The nine quantiles at $p = 0.1, 0.2, \ldots, 0.9$ that cut a distribution into ten
+equal-sized groups. The "3rd decile" is $p = 0.3$: three-tenths of observations lie below it.
+
+**Median.** The 5th decile, $p = 0.5$. `median(x)`.
+
+## Frequency tables
+
+A **frequency table** counts how many observations fall into each of a set of intervals. Two
+conventions have to be settled, and getting either wrong shifts counts between adjacent bins:
+
+- **Which end is closed.** An interval can be $(a, b]$ (right-closed: a value exactly equal
+  to $b$ belongs here) or $[a, b)$ (left-closed: a value equal to $a$ belongs here). R's
+  `hist` is right-closed; so is `freqtable_binned` by default. Pass `closed = :left` for the
+  other convention.
+- **What happens at the very bottom.** With right-closed intervals, a value sitting exactly
+  on the lowest break belongs to no bin at all. R's `include.lowest = TRUE` folds it into the
+  first bin; `freqtable_binned` does the same by default.
+
+`freqtable_binned(x; breaks)` returns the interval bounds, a printable label, the count, and
+the proportion. It warns when observations fall outside `breaks` rather than dropping them
+silently, because a quietly truncated histogram changes an answer without looking wrong.
+
+A **histogram** is the column chart of a frequency table: bar height is the count (or
+proportion) in each interval. Unlike a bar chart of categories, the horizontal axis is
+continuous and the bars have a defined width.
+
+## Association between two variables
+
+**Covariance.** How two variables move together:
+
+$$\text{cov}(x, y) = \frac{1}{n-1}\sum_i (x_i - \bar{x})(y_i - \bar{y})$$
+
+Its size depends on the units of both variables, so it can't be compared across pairs.
+`cov(x, y)`.
+
+**Correlation coefficient.** Covariance scaled by both standard deviations, which removes the
+units:
+
+$$r = \frac{\text{cov}(x, y)}{s_x s_y}$$
+
+`cor(x, y)`. This is the Pearson coefficient. It always lies in $[-1, 1]$: $1$ is a perfect
+positive straight-line relationship, $-1$ a perfect negative one, $0$ no *linear*
+relationship.
+
+Three limitations:
+
+- **It only sees straight lines.** A perfect but curved relationship can have $r$ near zero,
+  so plot the scatter as well as computing $r$.
+- **It is not causation.** $r$ is symmetric in $x$ and $y$ and says nothing about direction.
+- **Outliers move it.** One extreme point can create or destroy a correlation in a small sample.
+
+**Spurious correlation.** A strong correlation with no causal link either way. Two mechanisms:
+a common cause driving both, or — the one that bites in time-series work — both variables
+simply trending. Any two series rising over the same decades correlate whatever they measure,
+so a high $r$ between two trending series is weak evidence on its own.
+
+## Inequality
+
+**Lorenz curve.** Sort the population from poorest to richest, then plot the cumulative share
+of the population against the cumulative share of the total they hold. Perfect equality is
+the 45° line; the curve can never rise above it, and bows further below as distribution gets
+more unequal.
+
+`lorenz(x; weights)` returns `population` and `share` vectors with the origin prepended, so
+it plots straight against the line of equality. `weights` lets one row stand for many people
+— survey weights, or a decile table where each row is a tenth of the population.
+
+**Gini coefficient.** Twice the area between the Lorenz curve and the line of equality:
+
+$$G = 1 - \sum_i w_i \frac{S_{i-1} + S_i}{W \cdot S_n}$$
+
+where observations are sorted ascending, $w_i$ are weights, $W = \sum w_i$, and
+$S_i = \sum_{j \le i} w_j x_j$ is cumulative value.
+
+`gini(x; weights)`. It runs from $0$ (everyone holds the same) toward $1$ (one unit holds
+everything). This is the *population* form, the one the book computes; with equal weights it
+agrees exactly with the unweighted formula, so weighted and unweighted results stay
+comparable.
+
+The Gini reaches exactly $1$ only in the limit. For $n$ observations where one holds
+everything, $G = (n-1)/n$ — so $0.75$ for four observations, not $1$.
+
+**Decile shares.** The share of the total held by each tenth of the population, poorest first,
+summing to $1$. `decile_shares(x; weights, n = 10)` computes them by differencing the Lorenz
+curve, which is exact for pre-grouped data and handles weights without needing weighted
+quantiles. `cumulative_share(x, q)` reads the curve at an arbitrary point — the share held by
+the bottom $q$ of the population.
+
+## Comparing series in different units
+
+**Index number.** Rescale a series so a chosen base period equals 100:
+
+$$I_t = 100 \times \frac{x_t}{x_{\text{base}}}$$
+
+`index_to(x, base_index)`. This is how two series measured in unrelated units get compared on
+one axis — the honest alternative to giving each its own y-scale, which makes the apparent
+strength of the relationship depend on an arbitrary choice of alignment.
+
+**Percentage change.** $100 \times (x_t - x_{t-1}) / x_{t-1}$. `pct_change(x)`, returning
+`missing` for the first element and wherever the change is undefined.
+
+## Temperature anomalies
+
+An **anomaly** is a departure from a reference average rather than an absolute level: GISS
+reports how much warmer or cooler a period was than the 1951–1980 mean for the same location
+and month.
+
+Anomalies are used because absolute temperature varies by place and season and station coverage
+changes over time — averaging absolute readings across a hemisphere would mostly measure which
+stations were reporting. Differences from a local baseline are comparable across places, so
+they can be averaged.
+
+Because the baseline is the 1951–1980 mean, anomalies over that window average to zero *by
+construction*: a property of the definition, not a finding.

@@ -1,0 +1,95 @@
+/*-- scss:defaults --*/
+
+// Page chrome and ink, taken from the same palette the figures use, so the
+// rendered charts sit on a surface that belongs to the page rather than floating
+// on an unrelated white. Figures are drawn on the chart surface ($surface-1);
+// the page itself is the slightly darker page plane.
+$page-plane:      #f9f9f7;
+$surface-1:       #fcfcfb;
+$ink-primary:     #0b0b0b;
+$ink-secondary:   #52514e;
+$ink-muted:       #898781;
+$hairline:        #e1e0d9;
+$rule:            #c3c2b7;
+$accent:          #2a78d6;  // categorical slot 1
+
+$body-bg:         $page-plane;
+$body-color:      $ink-primary;
+$link-color:      $accent;
+$code-bg:         $surface-1;
+$code-color:      #184f95;
+$border-color:    $hairline;
+
+$font-family-sans-serif: system-ui, -apple-system, "Segoe UI", sans-serif;
+$font-family-monospace: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+$font-size-root: 16px;
+$toc-color: $ink-secondary;
+
+/*-- scss:rules --*/
+
+// Recessive chrome: hairline rules only, never heavy borders.
+#quarto-sidebar,
+#quarto-margin-sidebar {
+  font-size: 0.9rem;
+}
+
+.sidebar nav[role="doc-toc"] ul > li > a.active,
+.sidebar nav[role="doc-toc"] ul > li > ul > li > a.active {
+  border-left: 2px solid $accent;
+  color: $ink-primary;
+}
+
+div.sourceCode {
+  background-color: $surface-1;
+  border: 1px solid $hairline;
+  border-radius: 4px;
+}
+
+// Figures sit on the chart surface with a hairline ring, matching the mark specs'
+// treatment of chart containers. Height is never fixed, so the x-axis band and its
+// labels always fit instead of getting a nested scrollbar.
+figure, .cell-output-display {
+  background-color: $surface-1;
+}
+
+figure img, figure svg, .cell-output-display img, .cell-output-display svg {
+  max-width: 100%;
+  height: auto;
+}
+
+figcaption, .figure-caption {
+  color: $ink-secondary;
+  font-size: 0.85rem;
+}
+
+// Tables: hairline rules, tabular figures so columns of numbers line up.
+table {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+table > thead {
+  border-bottom: 1px solid $rule;
+}
+
+table > tbody tr {
+  border-bottom: 1px solid $hairline;
+}
+
+// Wide content scrolls inside its own container; the page body never scrolls
+// sideways.
+.cell-output-display > table,
+.table-responsive,
+div.sourceCode pre {
+  overflow-x: auto;
+}
+
+// The callout used for every deviation from the book's own approach.
+.callout-note {
+  border-left-color: $accent;
+}
+
+blockquote {
+  border-left: 2px solid $rule;
+  color: $ink-secondary;
+}

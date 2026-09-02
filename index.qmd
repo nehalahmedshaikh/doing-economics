@@ -1,0 +1,70 @@
+---
+title: "Doing Economics in Julia"
+subtitle: "Working through CORE Econ's empirical projects, one at a time"
+engine: markdown
+---
+
+[*Doing Economics*](https://books.core-econ.org/doing-economics/index.html) is CORE Econ's set
+of fourteen empirical projects, each built on a real dataset. It ships walk-throughs in Excel,
+R, Google Sheets, and Python — not Julia. This is the Julia version.
+
+Each project page follows the book's structure: every Part, every numbered question, with the
+Julia code and a written answer. Results are checked against the book's published solutions.
+
+Two departures:
+
+- **The analysis follows the book; some charts don't.** Where the book's chart form misleads —
+  the dual-axis temperature/CO₂ chart in Project 1 — this uses one that doesn't, with a note
+  saying why. The numbers are unchanged.
+- **Live data moves.** NASA GISS reissues its series monthly, so figures differ from the
+  published solutions in the last decimal. Each page states its data vintage;
+  `data/MANIFEST.toml` records the checksum.
+
+## Projects
+
+| # | Project | Status |
+|---|---------|--------|
+| 1 | [Measuring climate change](projects/01-measuring-climate-change/index.qmd) | Done |
+| 2 | Collecting and analysing data from experiments | Planned |
+| 3 | Measuring the effect of a sugar tax | Planned |
+| 4 | Measuring wellbeing | Planned |
+| 5 | Measuring inequality: Lorenz curves and Gini coefficients | Planned |
+| 6 | Measuring management practices | Planned |
+| 7 | Supply and demand | Planned |
+| 8 | Measuring the non-monetary cost of unemployment | Planned |
+| 9 | Credit-excluded households in a developing country | Planned |
+| 10 | Characteristics of banking systems around the world | Planned |
+| 11 | Measuring willingness to pay for climate change mitigation | Planned |
+| 12 | Government policies and popularity: Hong Kong cash handout | Planned |
+| 13 | Extra 1: Female labour supply and the macroeconomy | Planned |
+| 14 | Extra 2: The politics of carbon taxation | Planned |
+
+## Getting started
+
+[Setup](setup.qmd) covers installing Julia, instantiating the environment, and fetching the
+data. In short:
+
+```bash
+git clone https://github.com/nehalahmedshaikh/doing-economics
+cd doing-economics
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. scripts/fetch_data.jl 1
+quarto render projects/01-measuring-climate-change/index.qmd
+```
+
+## Also here
+
+- [**R → Julia**](reference/r-to-julia.qmd) — what each R idiom from the walk-throughs becomes
+  in Julia, and where the two genuinely differ.
+- [**Technical reference**](reference/technical-reference.qmd) — the statistical measures, with
+  the conventions used here.
+
+## Credit and licensing
+
+The projects, questions, and published solutions are the work of
+[CORE Econ](https://www.core-econ.org) and remain their copyright. This repository restates the
+tasks in its own words and links to the source pages. The Julia code and prose are
+MIT-licensed.
+
+Datasets belong to their publishers (NASA GISS, NOAA, the World Bank). None are redistributed;
+`scripts/fetch_data.jl` downloads them from source.

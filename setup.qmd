@@ -1,0 +1,126 @@
+---
+title: "Setup"
+subtitle: "Julia, Quarto, and the data"
+engine: markdown
+---
+
+## 1. Install Julia
+
+Use [juliaup](https://github.com/JuliaLang/juliaup), the official version manager, rather
+than a bare Julia install — it handles updates and lets you pin a version per project.
+
+::: {.panel-tabset}
+
+### Windows
+
+```powershell
+winget install --id Julialang.Juliaup -e --source winget
+```
+
+This comes from winget's default source, so no Microsoft Store account is involved.
+
+### macOS / Linux
+
+```bash
+curl -fsSL https://install.julialang.org | sh
+```
+
+:::
+
+Then **open a new terminal** — the installer edits `PATH`, and the shell you ran it in
+won't have picked that up:
+
+```bash
+julia --version    # 1.12.x
+juliaup status
+```
+
+## 2. Install Quarto
+
+Project pages are `.qmd` files: prose with Julia code cells, rendered by Quarto's native
+Julia engine.
+
+::: {.panel-tabset}
+
+### Windows
+
+```powershell
+winget install --id Posit.Quarto -e --source winget
+```
+
+### macOS / Linux
+
+Download the installer from [quarto.org/docs/get-started](https://quarto.org/docs/get-started/),
+or on macOS `brew install --cask quarto`.
+
+:::
+
+Check that the Julia engine can start. The first run installs
+[QuartoNotebookRunner](https://github.com/PumasAI/QuartoNotebookRunner.jl) into a private
+environment that Quarto owns, so it won't touch this project's dependencies or your global
+one:
+
+```bash
+quarto --version   # 1.10.x
+quarto check julia
+```
+
+## 3. Instantiate the environment
+
+`Manifest.toml` is committed, so this resolves to the exact package versions the published
+figures were produced with:
+
+```bash
+git clone https://github.com/nehalahmedshaikh/doing-economics
+cd doing-economics
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+The first run downloads and precompiles the stack — CairoMakie is the slow part, expect a
+few minutes. Subsequent runs are fast.
+
+Confirm the shared helpers work:
+
+```bash
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+## 4. Fetch the data
+
+Datasets are not committed. `data/MANIFEST.toml` records where each one comes from, its
+licence, and its checksum; the fetch script reads that file:
+
+```bash
+julia --project=. scripts/fetch_data.jl        # everything
+julia --project=. scripts/fetch_data.jl 1      # just project 1
+julia --project=. scripts/verify_data.jl       # check what's on disk
+```
+
+Two things the script will tell you about rather than fail on:
+
+- **Reissued sources.** Some series are republished on a schedule — NASA GISS revises its
+  whole temperature record monthly. The manifest records the vintage that produced the
+  committed figures, and the script reports when upstream has moved on. Your numbers may
+  differ from the rendered ones in the last decimal place.
+- **Registration-gated sources.** A few projects use data behind a signup (the World Values
+  Survey, the World Management Survey). These can't be downloaded unattended; the script
+  prints where to put the file and carries on.
+
+## 5. Render
+
+```bash
+quarto render                                              # whole site into docs/
+quarto render projects/01-measuring-climate-change/index.qmd   # one project
+quarto preview                                             # live-reloading server
+```
+
+Computed output is cached in `_freeze/`, which is committed. That is what lets the site
+build in CI without the datasets present — useful given the gated sources above. To force a
+project to actually re-run, delete its folder under `_freeze/` first.
+
+## Working on this in an editor
+
+For VS Code, install the [Julia](https://marketplace.visualstudio.com/items?itemName=julialang.language-julia)
+and [Quarto](https://marketplace.visualstudio.com/items?itemName=quarto.quarto) extensions.
+The Quarto extension runs individual cells against a persistent Julia session, which avoids
+paying CairoMakie's startup cost on every edit.

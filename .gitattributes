@@ -1,0 +1,15 @@
+# Normalise to LF in the repository. CI renders on Linux, so committing CRLF would
+# make _freeze checksums and diffs depend on which platform last touched a file.
+* text=auto eol=lf
+
+*.jl   text eol=lf
+*.qmd  text eol=lf
+*.toml text eol=lf
+*.yml  text eol=lf
+*.scss text eol=lf
+*.md   text eol=lf
+
+*.xlsx binary
+*.png  binary
+*.jpg  binary
+*.svg  text eol=lf
