@@ -135,3 +135,107 @@ as `doing-economics-project-3-2-datafile.xls`, but that is the legacy OLE2 .xls 
 which XLSX.jl cannot read - it would need LibreOffice or Python to convert. The Stata \
 original is what the book's own R walk-through 3.7 uses, and it needs no conversion \
 step, so the repository stays pure Julia."""
+
+# ── Project 4: Measuring wellbeing ───────────────────────────────────────────
+
+[[file]]
+project = 4
+name = "un-gdp-constant-usd"
+dest = "04/un-gdp-constant-usd.xlsx"
+url = "https://unstats.un.org/unsd/amaapi/api/file/6"
+description = """
+UN National Accounts Main Aggregates: GDP and its breakdown at constant prices in US \
+dollars, all 220 countries, 1970 onward. Sheet \
+`Download-GDPconstant-USD-countr` holds one row per country and indicator with years \
+across the columns and the header on row 3; 17 indicators including GDP, household and \
+government consumption, gross capital formation, and exports and imports."""
+publisher = "United Nations Statistics Division"
+licence = "Free for use with attribution (UN Statistics Division terms)"
+stable = false
+vintage = "2026-09-02"
+sha256 = "49cae967082bcbef8b2f0e8a02d755a0809405bae82bc9a7cee4b010814d9e5c"
+notes = """
+The download page serves files by number rather than name; file/6 is the \
+constant-price US-dollar country file. The endpoint reports \
+`application/vnd.ms-excel` but the payload is really Open XML (PK magic bytes), so \
+XLSX.jl reads it directly.
+
+Two moving parts. The UN revises national accounts annually, so this is not frozen. \
+More importantly it has been REBASED from constant 2010 prices, which the book uses, to \
+constant 2020 prices. Shares of real GDP depend on the base year because components \
+carry different deflators, so the shares in Part 4.1 differ from the book's published \
+figures by up to 0.06. The project page explains this rather than hiding it."""
+
+[[file]]
+project = 4
+name = "undp-hdi-time-series"
+dest = "04/hdr25-composite-time-series.csv"
+url = "https://hdr.undp.org/sites/default/files/2025_HDR/HDR25_Composite_indices_complete_time_series.csv"
+description = """
+UNDP Human Development Report 2025: all composite indices and their components, \
+1990-2023, 206 rows. Columns used here are hdicode, region, and the 2023 values for \
+HDI, life expectancy, expected and mean years of schooling, and GNI per capita."""
+publisher = "United Nations Development Programme"
+licence = "CC BY 3.0 IGO"
+stable = false
+vintage = "2026-09-02"
+sha256 = "61ed82e5b66c88dfca8ff9fac775c63981ecab6a254862af97acacc41c143117"
+notes = """
+The book reads the statistical annex spreadsheet (`Table 1`), whose header spans seven \
+rows with development-group labels interleaved among the data rows. UNDP publishes the \
+same numbers as this tidy CSV, which is used instead.
+
+Reissued with each annual report, and the reference year advances with it - this is the \
+2025 report covering 2023. The book's solutions were written against HDR 2021-22, so \
+HDI values and ranks differ. The recomputation in Part 4.2 Q4 reproduces UNDP's own \
+published HDI for this vintage to within 0.001 for 99% of countries, which is the check \
+that matters."""
+
+[[file]]
+project = 4
+name = "wb-under5-mortality"
+dest = "04/wb-under5-mortality-2023.json"
+url = "https://api.worldbank.org/v2/country/all/indicator/SH.DYN.MORT?date=2023&format=json&per_page=400"
+description = "World Bank WDI: mortality rate, under-5, per 1,000 live births, 2023."
+publisher = "World Bank, World Development Indicators"
+licence = "CC BY 4.0"
+stable = false
+vintage = "2026-09-02"
+sha256 = "6e5cc7250a4206e9ddab0a6ba632eda50124649e6d26bf4dfc64507a7f760af0"
+notes = """
+Fetched from the public API by indicator code rather than through the interactive \
+download tool the book uses, so it is reproducible. The World Bank revises indicators \
+continuously, so the checksum records a vintage rather than a frozen file."""
+
+[[file]]
+project = 4
+name = "wb-primary-completion"
+dest = "04/wb-primary-completion-2023.json"
+url = "https://api.worldbank.org/v2/country/all/indicator/SE.PRM.CMPT.ZS?date=2023&format=json&per_page=400"
+description = "World Bank WDI: primary completion rate, % of relevant age group, 2023."
+publisher = "World Bank, World Development Indicators"
+licence = "CC BY 4.0"
+stable = false
+vintage = "2026-09-02"
+sha256 = "36dfa07c7affc46f00579defe06e0a3340701971a08c3236af418d225fcbbcc0"
+notes = """
+Chosen over adult literacy (SE.ADT.LITR.ZS), which has only about 70 countries \
+reporting for 2023 against this indicator's 178."""
+
+[[file]]
+project = 4
+name = "wb-household-consumption-pc"
+dest = "04/wb-household-consumption-pc-2023.json"
+url = "https://api.worldbank.org/v2/country/all/indicator/NE.CON.PRVT.PC.KD?date=2023&format=json&per_page=400"
+description = """
+World Bank WDI: household final consumption expenditure per capita, constant 2015 US \
+dollars, 2023."""
+publisher = "World Bank, World Development Indicators"
+licence = "CC BY 4.0"
+stable = false
+vintage = "2026-09-02"
+sha256 = "51fce572c97dd20938e2ac4ddcd50aa260a84ff8ee7fd1b1721dd40697669212"
+notes = """
+Stands in for GNI per capita in the alternative index. The two diverge sharply where \
+national income does not accrue to resident households - Luxembourg is the clearest \
+case, and it moves 23 rank places between the two indices."""

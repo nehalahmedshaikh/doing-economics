@@ -31,7 +31,7 @@ export SURFACE, INK, INK_SECONDARY, MUTED, GRIDLINE, BASELINE
 export SERIES, SEQ_BLUE, series_color, sequential_steps
 export doingecon_theme, use_doingecon_theme!
 export gini, lorenz, cumulative_share, decile_shares
-export freqtable_binned, pct_change, index_to
+export freqtable_binned, pct_change, index_to, geometric_mean
 export sha256_file, fetch_verified
 
 # ── paths ─────────────────────────────────────────────────────────────────────
@@ -414,6 +414,42 @@ function pct_change(x)
         out[i] = 100 * (cur - prev) / prev
     end
     return out
+end
+
+"""
+    geometric_mean(x)
+
+The `n`-th root of the product of `n` values, computed in log space so that a long vector
+cannot overflow the product.
+
+Unlike the arithmetic mean it is not dominated by one large component: a zero in any
+position sends the result to zero. That is why index numbers built from several dimensions
+use it — the Human Development Index is the geometric mean of its health, education and
+income indices, so a country cannot compensate for a collapse in one dimension by excelling
+in another.
+
+Requires all values non-negative; `missing` values are skipped.
+
+```jldoctest
+julia> geometric_mean([1, 4, 16])
+4.0
+
+julia> geometric_mean([0.5, 0.5])
+0.5
+
+julia> geometric_mean([0.9, 0.9, 0.0])
+0.0
+```
+"""
+function geometric_mean(x)
+    vals = Float64[v for v in skipmissing(x)]
+    isempty(vals) && return NaN
+    any(<(0), vals) &&
+        throw(ArgumentError("geometric_mean requires non-negative values"))
+    # A single zero makes the whole product zero; log(0) would be -Inf and exp(-Inf)
+    # is 0, which is the right answer but warns, so short-circuit instead.
+    any(iszero, vals) && return 0.0
+    return exp(sum(log, vals) / length(vals))
 end
 
 """

@@ -41,6 +41,8 @@ website:
             text: "2. Data from experiments"
           - href: projects/03-sugar-tax/index.qmd
             text: "3. Measuring a sugar tax"
+          - href: projects/04-measuring-wellbeing/index.qmd
+            text: "4. Measuring wellbeing"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd

@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "7ffd3b4501ed8ae9a55157c73c5635e8aae263a4"
+project_hash = "f663671caada8697f05832c4b8b95cf4f79593ed"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -405,7 +405,7 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.9.5"
 
 [[deps.DoingEconomics]]
-deps = ["AlgebraOfGraphics", "CSV", "CairoMakie", "DataFrames", "Dates", "DelimitedFiles", "Downloads", "HypothesisTests", "Makie", "Printf", "Random", "SHA", "Statistics", "StatsBase", "TOML", "XLSX"]
+deps = ["AlgebraOfGraphics", "CSV", "CairoMakie", "DataFrames", "Dates", "DelimitedFiles", "Downloads", "HypothesisTests", "Makie", "Printf", "Random", "ReadStatTables", "SHA", "Statistics", "StatsBase", "TOML", "XLSX"]
 path = "."
 uuid = "9bbc99c8-0b7f-4e27-95e6-e09c5d1c804e"
 version = "0.1.0"
@@ -847,6 +847,18 @@ version = "1.7.1"
     JSONArrowExt = ["ArrowTypes"]
 
     [deps.JSON.weakdeps]
+    ArrowTypes = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
+
+[[deps.JSON3]]
+deps = ["Dates", "Mmap", "Parsers", "PrecompileTools", "StructTypes", "UUIDs"]
+git-tree-sha1 = "411eccfe8aba0814ffa0fdf4860913ed09c34975"
+uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+version = "1.14.3"
+
+    [deps.JSON3.extensions]
+    JSON3ArrowExt = ["ArrowTypes"]
+
+    [deps.JSON3.weakdeps]
     ArrowTypes = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
 
 [[deps.JpegTurbo]]
@@ -1570,6 +1582,12 @@ version = "0.7.3"
     LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
     SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
     StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[[deps.StructTypes]]
+deps = ["Dates", "UUIDs"]
+git-tree-sha1 = "159331b30e94d7b11379037feeb9b690950cace8"
+uuid = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
+version = "1.11.0"
 
 [[deps.StructUtils]]
 deps = ["Dates", "UUIDs"]

@@ -141,6 +141,21 @@ using DoingEconomics
         @test ismissing(pct_change([1, missing, 3])[3])
         @test isempty(pct_change(Float64[]))
 
+        @test geometric_mean([1, 4, 16]) ≈ 4.0
+        @test geometric_mean([0.5, 0.5]) ≈ 0.5
+        @test geometric_mean([7]) ≈ 7.0
+        # A zero in any dimension zeroes the whole index - the property that makes it
+        # the right mean for the HDI.
+        @test geometric_mean([0.9, 0.9, 0.0]) == 0.0
+        # Never above the arithmetic mean, equal only when all values match.
+        @test geometric_mean([1, 100]) ≈ 10.0        # arithmetic mean is 50.5
+        @test geometric_mean([3, 3, 3]) ≈ 3.0        # equal values: the two agree
+        @test geometric_mean([2, missing, 8]) ≈ 4.0
+        @test isnan(geometric_mean(Float64[]))
+        # Log-space summation, so a long vector cannot overflow the product.
+        @test geometric_mean(fill(1e200, 500)) ≈ 1e200 rtol = 1e-8
+        @test_throws ArgumentError geometric_mean([-1, 4])
+
         @test index_to([50, 100, 150], 1) ≈ [100.0, 200.0, 300.0]
         @test index_to([50, 100, 150], 2) ≈ [50.0, 100.0, 150.0]
         @test index_to([2, 4], 1; base = 1) ≈ [1.0, 2.0]
