@@ -47,6 +47,8 @@ website:
             text: "5. Measuring inequality"
           - href: projects/06-management-practices/index.qmd
             text: "6. Management practices"
+          - href: projects/07-supply-and-demand/index.qmd
+            text: "7. Supply and demand"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd

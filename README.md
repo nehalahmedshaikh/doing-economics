@@ -33,7 +33,7 @@ Two deliberate departures:
 | 4 | [Measuring wellbeing](https://nehalahmedshaikh.github.io/doing-economics/projects/04-measuring-wellbeing/) | ✅ Done |
 | 5 | [Measuring inequality: Lorenz curves and Gini coefficients](https://nehalahmedshaikh.github.io/doing-economics/projects/05-measuring-inequality/) | ✅ Done |
 | 6 | [Measuring management practices](https://nehalahmedshaikh.github.io/doing-economics/projects/06-management-practices/) | ✅ Done |
-| 7 | Supply and demand | Planned |
+| 7 | [Supply and demand](https://nehalahmedshaikh.github.io/doing-economics/projects/07-supply-and-demand/) | ✅ Done |
 | 8 | Measuring the non-monetary cost of unemployment | Planned |
 | 9 | Credit-excluded households in a developing country | Planned |
 | 10 | Characteristics of banking systems around the world | Planned |
@@ -66,7 +66,8 @@ quarto render projects/01-measuring-climate-change/index.qmd          # data is 
 │   ├── 03-sugar-tax/index.qmd
 │   ├── 04-measuring-wellbeing/index.qmd
 │   ├── 05-measuring-inequality/index.qmd
-│   └── 06-management-practices/index.qmd
+│   ├── 06-management-practices/index.qmd
+│   └── 07-supply-and-demand/index.qmd
 ├── src/DoingEconomics.jl   shared helpers: paths, chart theme, gini/lorenz,
 │                           frequency tables, index numbers, verified downloads
 ├── data/

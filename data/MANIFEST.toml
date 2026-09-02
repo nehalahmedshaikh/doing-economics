@@ -363,3 +363,39 @@ Every published figure reproduces: all 19 country mean management scores, all se
 hospital and five school means, and the confidence interval half-widths for the United \
 States and Chile. The book lists Great Britain where the data says UK, same value. The \
 one difference is the US firm count, 1,225 here against the book's 1,224."""
+
+# ── Project 7: Supply and demand ─────────────────────────────────────────────
+
+[[file]]
+project = 7
+name = "watermelon-market"
+dest = "07/watermelon-market.xlsx"
+url = "https://www.core-econ.org/wp-content/uploads/2022/06/doing-economics-excel-7-1-datafile.xlsx"
+description = """
+The US watermelon market 1930-1951, from Suits (1955), "An Econometric Model of the \
+Watermelon Market". 22 rows on Sheet1: Year plus logged quantity (log.q), harvest \
+(log.h), price (log.p), price of cotton (log.pc) and vegetables (log.pv), wage (log.w), \
+population (log.n), income per capita (log.y_n) and railway freight cost (log.pf)."""
+publisher = "CORE Econ, from Suits (1955), Journal of Farm Economics 37(2)"
+licence = "Redistributed by CORE Econ for teaching use"
+stable = true
+vintage = "2026-09-02"
+sha256 = "a4400562165ffc3b76f84c6bf750752d95d29082fe824108432f47de7523aaa3"
+notes = """
+THE LOGS IN THIS FILE ARE BASE 10, not natural. The book states that "whenever log (or \
+ln) is used in economics, it refers to natural logarithms" and has you apply `exp()` to \
+recover levels, which gives quantities around 5-7 for a series whose real values are \
+48-86.
+
+The population column settles it. `10^log.n` gives 123.0, 132.1, 151.7 and 154.5 for \
+1930, 1940, 1950 and 1951, against an actual US population of 123.2, 132.2, 151.3 and \
+154.9 million - agreement within 0.4%. `exp(log.n)` gives 8.1 to 8.9, which is not a \
+population. The project page shows both and uses base 10.
+
+`log.pv` and `log.w` contain the string "NA" and so need `missingstring = "NA"` on read, \
+which is what the book's `na = "NA"` argument does.
+
+The stylised supply and demand curves in Part 7.1 are a separate illustrative model \
+stated in natural logs, and reproduce the book's published prices exactly (163.44 and \
+160.29 at Q = 65). Elasticities are unaffected by the discrepancy: a log-log slope is a \
+percentage elasticity whatever base the logs use."""
