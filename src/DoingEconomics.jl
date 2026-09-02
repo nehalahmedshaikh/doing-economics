@@ -32,6 +32,7 @@ export SERIES, SEQ_BLUE, series_color, sequential_steps
 export doingecon_theme, use_doingecon_theme!
 export gini, lorenz, cumulative_share, decile_shares
 export freqtable_binned, pct_change, index_to, geometric_mean
+export show_all
 export sha256_file, fetch_verified
 
 # ── paths ─────────────────────────────────────────────────────────────────────
@@ -466,6 +467,48 @@ function index_to(x, base_index::Integer; base::Real = 100)
     iszero(anchor) && throw(ArgumentError("base value at index $base_index is zero"))
     return [ismissing(vi) ? missing : base * vi / anchor for vi in v]
 end
+
+# ── tables ────────────────────────────────────────────────────────────────────
+
+"""
+    show_all(df)
+
+Wrap a table so it renders every row instead of an elided middle.
+
+Quarto's Julia engine displays cell results through an `IOContext` carrying
+`:limit => true`, and DataFrames honours that by printing only as many rows as a
+terminal would hold — 26 of 46, with the rest replaced by a `⋮` row. On a web page
+there is no reason to elide anything, and a table whose middle is hidden invites prose
+that cites rows the reader cannot see.
+
+`show_all` forwards the display with `:limit => false`:
+
+```julia
+show_all(country_table)      # instead of `country_table`
+```
+
+Use it for any table with more rows than a terminal shows. Short tables need nothing.
+"""
+struct AllRows{T}
+    table::T
+end
+
+show_all(table) = AllRows(table)
+
+_unlimited(io::IO, m::MIME, a::AllRows) =
+    show(IOContext(io, :limit => false), m, a.table)
+
+# One method per format DataFrames actually implements — deliberately *not* a generic
+# `show(::IO, ::MIME, ::AllRows)`. Quarto's engine picks a format by attempting `show`
+# rather than by consulting `showable`, so a generic method advertises every MIME in
+# existence and the render dies inside the forwarded call instead of moving on.
+for mime in (MIME"text/plain", MIME"text/html", MIME"text/latex",
+             MIME"text/csv", MIME"text/tab-separated-values")
+    @eval Base.show(io::IO, m::$mime, a::AllRows) = _unlimited(io, m, a)
+end
+
+Base.showable(m::MIME, a::AllRows) = showable(m, a.table)
+Base.show(io::IO, a::AllRows) = show(IOContext(io, :limit => false), a.table)
 
 # ── data fetching ─────────────────────────────────────────────────────────────
 

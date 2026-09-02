@@ -49,6 +49,8 @@ website:
             text: "6. Management practices"
           - href: projects/07-supply-and-demand/index.qmd
             text: "7. Supply and demand"
+          - href: projects/08-unemployment-cost/index.qmd
+            text: "8. Cost of unemployment"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd

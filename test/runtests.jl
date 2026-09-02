@@ -174,6 +174,40 @@ using DoingEconomics
         end
     end
 
+    @testset "show_all" begin
+        # Quarto's engine displays results with `:limit => true`, which makes DataFrames
+        # elide the middle of a long table. Anything cited in prose has to be visible.
+        long = DataFrame(i = 1:46, x = collect(1.0:46))
+        render(x; limit) =
+            sprint((io, v) -> show(IOContext(io, :limit => limit),
+                                   MIME("text/html"), v), x)
+
+        @test occursin(">46<", render(long; limit = false))
+        @test !occursin(">30<", render(long; limit = true))          # the bug
+        @test occursin(">30<", render(show_all(long); limit = true)) # the fix
+        @test occursin(">46<", render(show_all(long); limit = true))
+
+        # Every row present, and the elision marker gone.
+        html = render(show_all(long); limit = true)
+        @test !occursin("⋮", html)
+        @test all(occursin(">$i<", html) for i in 1:46)
+
+        # Plain-text display is forwarded the same way.
+        @test occursin("46", sprint((io, v) -> show(IOContext(io, :limit => true),
+                                                    MIME("text/plain"), v),
+                                    show_all(long)))
+
+        # No generic `show(::IO, ::MIME, ::AllRows)`. Quarto picks an output format by
+        # attempting `show` rather than by asking `showable`, so a catch-all method
+        # advertises formats DataFrames cannot render and the render fails mid-cell.
+        T = typeof(show_all(long))
+        @test hasmethod(show, Tuple{IO, MIME"text/html", T})
+        @test hasmethod(show, Tuple{IO, MIME"text/plain", T})
+        @test !hasmethod(show, Tuple{IO, MIME"text/markdown", T})
+        @test !hasmethod(show, Tuple{IO, MIME"image/png", T})
+        @test !showable(MIME("text/markdown"), show_all(long))
+    end
+
     @testset "theme" begin
         th = doingecon_theme()
         @test th.backgroundcolor[] == SURFACE

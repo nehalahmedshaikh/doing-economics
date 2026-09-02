@@ -1,4 +1,4 @@
-# data/raw IS committed - 7.9 MB, and it makes the repository work offline and
+# data/raw IS committed - 20 MB, and it makes the repository work offline and
 # outlive its sources. Project 5's upstream (the GCIP site) is already gone; the
 # copy here is the only reliable one. Provenance is in data/MANIFEST.toml.
 #
@@ -12,6 +12,8 @@ data/processed/*
 *_files/
 *.html
 !reference/*.html
+# Dropped at the repo root when a single .qmd is rendered outside the project build.
+/site_libs/
 
 # Julia
 *.jl.cov

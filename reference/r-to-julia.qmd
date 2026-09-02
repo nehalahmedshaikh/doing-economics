@@ -166,6 +166,60 @@ the naive version work, so code that renders correctly on these pages can still 
 into a plain `.jl` script. Both Project 3 and Project 4 hit this. The pages use `let` blocks and
 up-front construction so that the code works either way.
 
+### `let` is fix #1 only when you initialise inside it
+
+Fix #1 above works because `total = 0` sits *inside* the `let`. Reach for `let` to **rebind an
+outer name** and it fails, which is the opposite trap:
+
+```julia
+df = load()
+let keep = df.x .> 0
+    df = df[keep, :]       # UndefVarError: `df` not defined in local scope
+end
+```
+
+`let` is a hard scope, so `df = ...` declares a *new local* `df`, and the right-hand side then
+reads that local before it has a value. It errors rather than corrupting anything, which is the
+good case — but the message points at `df` being undefined when `df` is plainly defined one line
+up, so it reads like a bug in the language.
+
+Project 8 hit this while filtering four survey waves in sequence. The fix is not `global`; it is
+a function that takes a frame and returns a new one:
+
+```julia
+function require_complete(df, cols; asked_in)
+    keep = .!in.(df.wave, Ref(asked_in)) .| complete_in(df, cols)
+    return df[keep, :]
+end
+
+clean = require_complete(clean, ["income"]; asked_in = ["2008-2010"])
+```
+
+The rule of thumb: `let` for a value you build and hand back, a function for a transformation
+you apply repeatedly. Neither needs `global`.
+
+## Long tables lose their middle
+
+Quarto's Julia engine displays each cell's result through an `IOContext` carrying
+`:limit => true`. DataFrames honours that the way it would for a terminal: past about 26 rows it
+prints the head and tail and replaces everything between with a `⋮` row.
+
+On a web page there is no reason to elide anything, and the failure is quiet — the table looks
+complete unless you count the rows. Project 8 shipped a 46-country table with 20 countries
+hidden, and the prose discussed three of the hidden ones.
+
+`show_all` from `DoingEconomics` forwards the display with the limit off:
+
+```julia
+show_all(country_table)      # every row, instead of head + ⋮ + tail
+```
+
+Two details matter in its implementation. It defines `show` for exactly the MIME types
+DataFrames implements, **not** a generic `show(::IO, ::MIME, ::AllRows)` — Quarto picks an output
+format by attempting `show` rather than by consulting `showable`, so a catch-all method
+advertises `text/markdown`, gets chosen, and dies inside the forwarded call. And `showable`
+delegates to the wrapped table so the choice stays honest. `test/runtests.jl` pins both.
+
 ## Missing values
 
 | R | Julia |

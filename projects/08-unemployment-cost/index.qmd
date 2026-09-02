@@ -1,0 +1,1161 @@
+---
+title: "8. Measuring the non-monetary cost of unemployment"
+subtitle: "What 129,515 survey respondents say about life satisfaction, and how much of the work is cleaning"
+engine: julia
+julia:
+  exeflags: ["--project=@."]
+---
+
+The European Values Study, four waves between 1981 and 2010, 164,997 respondents across 46
+countries. The question is whether unemployed people report lower life satisfaction than
+employed people, and whether that gap is larger where the social norm of working is stronger.
+
+- **[Part 8.1](#part-8.1)** — cleaning and summarizing the data
+- **[Part 8.2](#part-8.2)** — visualizing the data
+- **[Part 8.3](#part-8.3)** — confidence intervals for a difference in means
+
+New concept: the **confidence interval for a difference in means**. But most of this project is
+data cleaning — the file arrives with missing values coded as the string `.a`, ordinal scales
+stored as words, one column packing two variables, and four waves that do not ask the same
+questions. Book pages:
+[project](https://books.core-econ.org/doing-economics/book/text/08-01.html),
+[R walk-through](https://books.core-econ.org/doing-economics/book/text/08-03.html),
+[solutions](https://books.core-econ.org/doing-economics/book/text/08-04.html).
+
+```{julia}
+#| label: setup
+#| output: false
+using XLSX, DataFrames
+using Statistics, StatsBase, HypothesisTests
+using CairoMakie
+using DoingEconomics
+
+CairoMakie.activate!(type = "svg")
+use_doingecon_theme!()
+```
+
+# Part 8.1 — Cleaning and summarizing the data {#part-8.1}
+
+## Q1. Import the four waves and label the variables {#p1-q1}
+
+**(a)** The workbook holds one sheet per wave. All four share the same 17 columns, so they stack
+directly — `reduce(vcat, ...)` is the Julia equivalent of the book's repeated `rbind`.
+
+```{julia}
+#| label: read-evs
+const WAVES = ["1981-1984", "1990-1993", "1999-2001", "2008-2010"]
+path = rawpath("08", "life-satisfaction-evs.xlsx")
+
+evs = reduce(vcat, [DataFrame(XLSX.readtable(path, "Wave $i")) for i in 1:4])
+
+DataFrame(wave = WAVES, number = 1:4,
+          respondents = [sum(evs.S002EVS .== w) for w in WAVES])
+```
+
+164,997 rows and 17 columns. The variable names are EVS codes, which carry no meaning on their
+own.
+
+**(b)** The workbook's `Data dictionary` sheet is an empty template — it lists the 17 codes with
+blank name and description columns for you to fill in from the codebook PDF. Two of its rows
+are worth noting: it lists `S009` (a country ISO code), which is not actually in the data, and
+it omits nothing else.
+
+R attaches labels with `attr`, which stores a *positional vector* alongside the frame. Julia's
+DataFrames has per-column metadata instead, keyed by column name:
+
+```{julia}
+#| label: label-columns
+labels = [
+    "S002EVS" => ("EVS wave", "Survey wave"),
+    "S003"    => ("Country", "Country or region"),
+    "S006"    => ("Respondent", "Original respondent number"),
+    "A009"    => ("Health", "State of health (subjective)"),
+    "A170"    => ("Life satisfaction", "Satisfaction with your life as a whole"),
+    "C036"    => ("Work Q1", "To develop talents you need to have a job"),
+    "C037"    => ("Work Q2", "Humiliating to receive money without working for it"),
+    "C038"    => ("Work Q3", "People who don't work become lazy"),
+    "C039"    => ("Work Q4", "Work is a duty towards society"),
+    "C041"    => ("Work Q5", "Work comes first even if it means less spare time"),
+    "X001"    => ("Sex", "Sex"),
+    "X003"    => ("Age", "Age in years"),
+    "X007"    => ("Marital status", "Marital status"),
+    "X011_01" => ("Children", "How many living children do you have"),
+    "X025A"   => ("Education", "Educational level (ISCED one digit)"),
+    "X028"    => ("Employment", "Employment status"),
+    "X047D"   => ("Income", "Monthly household income (thousands of PPP euros)"),
+]
+
+for (col, (label, description)) in labels
+    colmetadata!(evs, col, "label", label; style = :note)
+    colmetadata!(evs, col, "description", description; style = :note)
+end
+
+DataFrame(variable = first.(labels),
+          label = [l for (_, (l, _)) in labels],
+          description = [d for (_, (_, d)) in labels])
+```
+
+::: {.callout-note}
+## `colmetadata!` beats `attr` for exactly one reason
+
+R's `attr(df, "labels")` is a vector matched to columns *by position*. Drop a column or reorder
+one and every label after it silently points at the wrong variable — and the book's own code
+then indexes it with `attr(df, "labels")[attr(df, "names") == "X028"]`, which is the workaround
+for that fragility.
+
+Julia's metadata is keyed by column, and `style = :note` makes it survive the operations that
+would break a positional vector:
+
+```{julia}
+#| label: metadata-survives
+wave4_only = select(evs[evs.S002EVS .== last(WAVES), :], :X028, :A170)
+
+(columns = names(wave4_only),
+ still_labelled = colmetadata(wave4_only, :X028, "description"))
+```
+
+A `filter` and a `select` that reversed the column order, and the label is still attached to the
+right variable.
+:::
+
+## Q2. Whether these self-reports can be compared at all {#p1-q2}
+
+**(a) Life satisfaction (`A170`) across people and countries.** The 1–10 answers are numbers,
+but treating them as a measured quantity needs three assumptions, and they get progressively
+harder to accept.
+
+1. **Ordinality within a person** — that a respondent's 7 is more satisfied than their 6. This is
+   the weak assumption and it is fine.
+2. **Cardinality** — that the step from 6 to 7 is the same size as the step from 8 to 9. Every
+   mean in this project needs this. There is no reason it holds, and reported scales tend to
+   compress at the top: moving 9 → 10 is a bigger real change than 5 → 6.
+3. **Interpersonal and cross-country comparability** — that your 7 and my 7 describe the same
+   internal state. This is the one that actually bites for this project, because the whole design
+   compares country averages. Translation of the question, norms about admitting
+   dissatisfaction, and the tendency to answer near the scale midpoint all vary systematically by
+   country.
+
+The third assumption is where the project's conclusions are most exposed. It matters less than it
+looks, though, because the analysis in Parts 8.2 and 8.3 works with *differences between groups
+inside the same country*. Any country-level offset — a national habit of answering high, a
+translation that shifts the whole scale — cancels out of a within-country difference. What does
+not cancel is a country-level difference in how *unemployed* people specifically respond, which
+is precisely the social-norm channel under study. The design cannot separate "the unemployed are
+less satisfied" from "the unemployed report their satisfaction differently."
+
+**(b) Misreporting employment status (`X028`).** Self-reported status is a single choice among
+eight categories, so misreporting is likely and, worse, likely non-random. Three mechanisms:
+
+- **Stigma.** If unemployment is shameful — the premise of the whole project — some unemployed
+  respondents will report "housewife", "student", or "self employed" instead. This is
+  correlated with the outcome and with the country's work ethic, so it biases the estimate in the
+  direction of the hypothesis being tested.
+- **Ambiguity.** Someone with a few hours of casual work, or unemployed but retraining, has a
+  genuine choice of answers. The category set is not a partition of real situations.
+- **Reference period.** No date is attached. Someone laid off last week may still answer
+  "full time".
+
+The stigma channel is the damaging one because it is *the same variable* as the explanatory
+mechanism. Note the direction: it removes the most-ashamed unemployed people from the unemployed
+category, which biases the measured gap *downward* in high-stigma countries — against the
+paper's hypothesis, not for it.
+
+**(c) Response biases in the work-attitude items (`C036`–`C041`).** Three that apply here:
+
+- **Acquiescence bias** — a tendency to agree with whatever is asserted. All five work items are
+  phrased in the pro-work direction ("work is a duty towards society"), so acquiescence inflates
+  the work-ethic score with no reverse-coded item to offset it. *Check:* the average would sit
+  above the 3.0 midpoint everywhere, and the five items would correlate positively with each
+  other more strongly than their content warrants. The observed means are 3.72 for men and 3.64
+  for women, both well above the 3.0 midpoint, which is consistent with this.
+- **Social desirability** — reporting the answer that reflects well on you. Its signature is
+  country-level: it would make the work-ethic measure track the local norm about what one *ought*
+  to say rather than individual belief, which is a problem because the country average is exactly
+  what Part 8.2 uses. *Check:* compare against a behavioural measure such as actual hours worked;
+  a norm-driven score should predict stated attitudes better than behaviour.
+- **Anchoring to the scale midpoint** — using the middle option as a default. *Check:* look for
+  an excess mass at exactly 3.0 in the five-item average. Because the average of five whole
+  numbers lands on multiples of 0.2, a genuine spike at 3.0 is visible in the frequency tables
+  in [Part 8.2 Q1](#p2-q1).
+
+## Q3. Recoding {#p1-q3}
+
+Five separate problems. Taking them in order.
+
+**(a) Missing values arrive as the string `.a`.** This is the conversion artefact that does the
+most damage, because a single `.a` in a column forces every value in it to be stored as text —
+so nothing is numeric until it is fixed.
+
+```{julia}
+#| label: count-dot-a
+DataFrame(variable = names(evs),
+          dot_a = [count(v -> v isa AbstractString && strip(v) == ".a", evs[!, c])
+                   for c in names(evs)],
+          stored_as = [string(eltype(evs[!, c])) for c in names(evs)])
+```
+
+```{julia}
+#| label: fix-missing
+for col in names(evs)
+    evs[!, col] = [(v isa AbstractString && strip(v) == ".a") ? missing : v
+                   for v in evs[!, col]]
+end
+sum(count(ismissing, evs[!, c]) for c in names(evs))
+```
+
+**(b) Life satisfaction mixes numbers with words.** The endpoints of the scale were exported as
+their labels, so `A170` contains `2`–`9` as text plus `"Dissatisfied"` and `"Satisfied"`.
+
+```{julia}
+#| label: recode-a170
+num(x) = x === missing ? missing :
+         x isa Number ? Float64(x) : tryparse(Float64, string(x))
+
+evs.A170 = [v === missing ? missing :
+            v == "Dissatisfied" ? 1.0 :
+            v == "Satisfied"    ? 10.0 : num(v) for v in evs.A170]
+
+extrema(skipmissing(evs.A170))
+```
+
+**(c) Number of children has `"No children"` where it means zero.**
+
+```{julia}
+#| label: recode-children
+evs.X011_01 = [v === missing ? missing : v == "No children" ? 0.0 : num(v)
+               for v in evs.X011_01]
+extrema(skipmissing(evs.X011_01))
+```
+
+**(d) Two ordinal scales stored as words.** The five work items and subjective health both need
+numbers before they can be averaged.
+
+```{julia}
+#| label: recode-scales
+const AGREE = Dict("Strongly disagree" => 1.0, "Disagree" => 2.0,
+                   "Neither agree nor disagree" => 3.0,
+                   "Agree" => 4.0, "Strongly agree" => 5.0)
+const HEALTH = Dict("Very poor" => 1.0, "Poor" => 2.0, "Fair" => 3.0,
+                    "Good" => 4.0, "Very good" => 5.0)
+const WORK_ITEMS = ["C036", "C037", "C038", "C039", "C041"]
+
+for col in WORK_ITEMS
+    evs[!, col] = [v === missing ? missing : AGREE[v] for v in evs[!, col]]
+end
+evs.A009 = [v === missing ? missing : HEALTH[v] for v in evs.A009]
+evs.X003 = num.(evs.X003)
+evs.X047D = num.(evs.X047D)
+
+DataFrame(item = vcat(WORK_ITEMS, "A009"),
+          answered = [count(!ismissing, evs[!, c]) for c in vcat(WORK_ITEMS, "A009")],
+          mean = [round(mean(skipmissing(evs[!, c])), digits = 3)
+                  for c in vcat(WORK_ITEMS, "A009")])
+```
+
+Indexing `AGREE[v]` directly rather than `get(AGREE, v, num(v))` is deliberate: if the file ever
+contains a label not in the map, this throws instead of silently producing a `missing`.
+
+**(e) Education packs a code and a description into one cell.** `X025A` looks like
+`"3 :  (Upper) secondary education"` — the ISCED level and its name, separated by a colon.
+Splitting on `" : "` gives a numeric level and a text description.
+
+```{julia}
+#| label: split-education
+parts = [v === missing ? missing : split(string(v), " : ") for v in evs.X025A]
+evs.Education_1 = [p === missing ? missing : num(first(p)) for p in parts]
+evs.Education_2 = [p === missing ? missing :
+                   (length(p) > 1 ? String(strip(p[2])) : missing) for p in parts]
+
+levels = [(code, desc) for (code, desc) in zip(evs.Education_1, evs.Education_2)
+          if code !== missing]
+sort!(unique!(levels); by = first)
+DataFrame(isced = first.(levels), description = last.(levels))
+```
+
+## Q4. Dropping incomplete observations, wave by wave {#p1-q4}
+
+This is the step where it is easy to destroy the dataset. **The four waves do not ask the same
+questions**, so a single `dropmissing` across all variables would delete every respondent in
+waves that never asked one of them — silently, and with no error.
+
+The book's filter therefore has four tiers. `A170`, `X003`, `X028`, `X007` and `X001` are
+required in all waves; subjective health only in waves 1, 2 and 4; the work items and income only
+in waves 3 and 4; children and education only in wave 4.
+
+```{julia}
+#| label: filter-missing
+complete_in(df, cols) = [all(!ismissing(row[c]) for c in cols) for row in eachrow(df)]
+
+# Keep a row unless its wave asked these questions and it left one blank.
+function require_complete(df, cols; asked_in)
+    keep = .!in.(df.S002EVS, Ref(asked_in)) .| complete_in(df, cols)
+    return df[keep, :]
+end
+
+steps = DataFrame(step = String["all four waves, raw"], rows = Int[nrow(evs)])
+
+clean = evs[complete_in(evs, ["A170", "X003", "X028", "X007", "X001"]), :]
+push!(steps, ("core variables, all waves", nrow(clean)))
+
+clean = require_complete(clean, vcat(WORK_ITEMS, "X047D"); asked_in = WAVES[3:4])
+push!(steps, ("work items and income, waves 3-4", nrow(clean)))
+
+clean = require_complete(clean, ["X011_01", "X025A"]; asked_in = WAVES[4:4])
+push!(steps, ("children and education, wave 4", nrow(clean)))
+
+clean = require_complete(clean, ["A009"]; asked_in = WAVES[[1, 2, 4]])
+push!(steps, ("subjective health, waves 1-2-4", nrow(clean)))
+
+steps.kept = round.(100 .* steps.rows ./ nrow(evs), digits = 1)
+steps
+```
+
+129,515 of 164,997 respondents survive — 78.5%. Where they came from:
+
+```{julia}
+#| label: wave-counts
+DataFrame(wave = WAVES, number = 1:4,
+          raw = [sum(evs.S002EVS .== w) for w in WAVES],
+          clean = [sum(clean.S002EVS .== w) for w in WAVES],
+          kept = [round(100 * sum(clean.S002EVS .== w) / sum(evs.S002EVS .== w), digits = 1)
+                  for w in WAVES])
+```
+
+Wave 3 loses the most (41.4% dropped) because it is the first wave asked the income question, and
+income is the item people most often refuse. No wave is wiped out, which is the check that the
+tiered filter worked.
+
+::: {.callout-important}
+## Name the waves that asked, not the ones that didn't
+
+The book writes each of these as an inverted comparison against the waves that *lack* the
+question — `S002EVS != "2008-2010" | complete.cases(...)` for the wave-4 items, and
+`S002EVS == "1999-2001" | complete.cases(...)` for health, because wave 3 is the one wave that
+did not ask it. Two of the three conditions are negations and one is not, which is easy to get
+backwards.
+
+Getting the polarity wrong does not error. It silently deletes a wave. Hence `asked_in`, which
+takes the waves that *did* ask and does the inversion in one place, so each call reads as the
+survey design rather than as its complement. The per-wave counts below are the check that it
+worked.
+
+Writing each filter as `let ... clean = clean[keep, :] ... end` instead fails with
+`UndefVarError: clean not defined in local scope` — `let` is a hard scope, so the assignment
+declares a new local that the right-hand side then reads before it exists. A function that takes
+a frame and returns one sidesteps it; the [R → Julia page](../../reference/r-to-julia.qmd) has
+the general case.
+:::
+
+## Q5. Work ethic and relative income {#p1-q5}
+
+**(a)** Work ethic is the mean of the five attitude items.
+
+```{julia}
+#| label: work-ethic
+clean.work_ethic = [all(!ismissing(row[c]) for c in WORK_ITEMS) ?
+                    mean(Float64[row[c] for c in WORK_ITEMS]) : missing
+                    for row in eachrow(clean)]
+
+(available = sum(!ismissing, clean.work_ethic),
+ waves_3_and_4 = sum(clean.S002EVS .== WAVES[3]) + sum(clean.S002EVS .== WAVES[4]),
+ distinct_values = length(unique(skipmissing(clean.work_ethic))),
+ range = extrema(skipmissing(clean.work_ethic)))
+```
+
+73,912 respondents have a work-ethic score, and that is exactly waves 3 and 4 summed. The
+arithmetic landing precisely is the check that the tiered filter tracked the survey design rather
+than dropping rows at random.
+
+::: {.callout-note}
+## The book describes six items; this file has five
+
+The project text refers to variables `C036` **to** `C041`, which reads as six questions. `C040`
+is not in the extract — the columns run `C036, C037, C038, C039, C041`. So the work-ethic measure
+is an average of **five** whole numbers, which is why it moves in steps of 0.2 and takes 21
+distinct values from 1.0 to 5.0. The book's own walk-through says "based on the five survey
+questions" and describes the 0.2 spacing, so five is intended; only the variable range in the
+question text is loose.
+:::
+
+**(b) Why deviation from the country mean is the wrong measure of relative income.** The study
+defines relative income as household income minus the country average. If the income
+distribution has a long right tail — which every income distribution does — the mean sits above
+the median, so the *typical* household has a negative deviation. Three consequences:
+
+- Most people are recorded as below-average, and the measure reports the skew of the
+  distribution rather than the person's position in it.
+- The mean is pulled by the top tail, so the measure of a middle household's relative standing
+  moves when the rich get richer and nothing about that household changes.
+- Countries with different amounts of top-end inequality are not comparable, because the same
+  deviation means a different rank position in each.
+
+**(c) Percentile instead.** The percentile of a household's income is its rank position, which is
+invariant to the shape of the distribution.
+
+```{julia}
+#| label: income-percentile
+clean.percentile = Vector{Union{Missing,Float64}}(missing, nrow(clean))
+
+for w in WAVES[3:4]
+    rows = findall((clean.S002EVS .== w) .& .!ismissing.(clean.X047D))
+    isempty(rows) && continue
+    income = Float64.(clean.X047D[rows])
+    clean.percentile[rows] = round.(ecdf(income)(income) .* 100, digits = 1)
+end
+
+(scored = sum(!ismissing, clean.percentile),
+ range = extrema(skipmissing(clean.percentile)),
+ mean = round(mean(skipmissing(clean.percentile)), digits = 2))
+```
+
+`ecdf` returns the empirical distribution function, and applying it to its own input gives each
+observation's percentile. It cannot handle `missing`, so the loop restricts to waves 3 and 4
+where income was asked.
+
+One thing the book's method does that is worth flagging: the percentile is computed **per wave,
+pooling all countries**. That is not the "relative income within your country" the question
+motivated — a median-income German and a median-income Moldovan land at very different
+percentiles of the pooled distribution, so this variable mixes national income levels with
+individual position. It is a defensible measure of European relative standing; it is not the
+within-country measure the text describes.
+
+## Q6. Summary tables {#p1-q6}
+
+Everything from here uses wave 4 (2008–2010), the only wave with all variables.
+
+```{julia}
+#| label: wave4
+wave4 = clean[clean.S002EVS .== WAVES[4], :]
+const STATUSES = sort(unique(skipmissing(wave4.X028)))
+
+(respondents = nrow(wave4), countries = length(unique(wave4.S003)),
+ statuses = STATUSES)
+```
+
+**(a) Employment status by country, as a share of each country's respondents.**
+
+```{julia}
+#| label: tbl-employment
+#| tbl-cap: "Employment status as a percentage of each country's wave-4 respondents. Rows sum to 100."
+employment = DataFrame(country = String[])
+for s in STATUSES
+    employment[!, s] = Float64[]
+end
+for c in sort(unique(wave4.S003))
+    rows = wave4[wave4.S003 .== c, :]
+    push!(employment, (c, [round(100 * count(==(s), skipmissing(rows.X028)) / nrow(rows),
+                                 digits = 1) for s in STATUSES]...))
+end
+# 46 rows: `show_all` keeps every country visible. Quarto's engine displays results with
+# `:limit => true`, which would otherwise hide 20 of them behind a `⋮`.
+show_all(employment)
+```
+
+The full-time share runs from **16.4% in Turkey to 57.9% in Belarus**, and the categories that
+absorb the difference are not the same everywhere. Three patterns stand out.
+
+**Turkey's 42.4% "housewife" share** is the largest single number in the table and more than
+triple the next-highest country's (Malta, 32.3%). Read alongside its 16.4% full-time share, this
+is a labour market where most women are outside recorded employment entirely. It matters for
+this project: a category that large is absorbing people who in another country would be counted
+as unemployed, which mechanically shrinks Turkey's measured unemployed group.
+
+**Unemployment ranges from 0.7% (Norway) to 32.5% (Georgia)**, with Kosovo at 29.8%, Macedonia at
+28.0% and Bosnia Herzegovina at 27.0%. In those four countries unemployment is not a minority
+condition, which undercuts the stigma mechanism before any estimate is made — a norm cannot
+easily stigmatise a third of the population. [Part 8.2 Q4](#p2-q4) shows this in the data.
+
+**Part-time work is a Northern European institution**: the Netherlands 18.2%, Switzerland 14.0%,
+Great Britain 11.2%, against under 3% in most of the Balkans. Retirement shares vary nearly as
+much (Slovakia 39.7%, Kosovo 5.8%) and track age structure rather than policy alone.
+
+**(b) Summary statistics by sex.** This reproduces the book's Figure 8.1.
+
+```{julia}
+#| label: tbl-summary-sex
+#| tbl-cap: "Summary statistics by sex, wave 4. Reproduces the book's Figure 8.1."
+const SUMMARY_VARS = ["A170" => "Life satisfaction", "A009" => "Self-reported health",
+                      "work_ethic" => "Work ethic", "X003" => "Age",
+                      "Education_1" => "Education", "X011_01" => "Number of children"]
+
+summary_table = DataFrame(variable = String[], male_mean = Float64[], male_sd = Float64[],
+                          female_mean = Float64[], female_sd = Float64[])
+for (col, label) in SUMMARY_VARS
+    stats = map(["Male", "Female"]) do sex
+        x = collect(skipmissing(wave4[wave4.X001 .== sex, col]))
+        (round(mean(x), digits = 2), round(std(x), digits = 2))
+    end
+    push!(summary_table, (label, stats[1]..., stats[2]...))
+end
+summary_table
+```
+
+Every value matches the published solution. Men and women are indistinguishable on most of these
+— life satisfaction 7.03 against 6.93, work ethic 3.72 against 3.64, age 46.9 against 47.3 —
+which is worth knowing before sex is used as a control. The two real gaps are **self-reported
+health** (3.77 against 3.60) and **number of children** (1.55 against 1.69, a reporting
+difference as much as a real one).
+
+Note the standard deviations relative to the means. Life satisfaction has an SD of about 2.3 on
+a 1–10 scale, against a male–female gap of 0.10: the spread *within* each sex is more than
+twenty times the difference between them. That ratio is the reason Part 8.3 needs confidence intervals rather than eyeballed
+comparisons of averages.
+
+# Part 8.2 — Visualizing the data {#part-8.2}
+
+## Q1. Has work ethic shifted over time? {#p2-q1}
+
+Waves 3 and 4 are the two that asked the work-attitude items. The book uses Germany as its
+example; **Great Britain is not in wave 3 at all**, so the three countries here are Germany,
+Spain and Turkey — the three that appear in both waves and span the range of work-ethic scores.
+
+**(a) Frequency tables.** Because the number surveyed differs by wave, the comparable quantity is
+the percentage at each score, not the count.
+
+```{julia}
+#| label: work-ethic-freq
+const P2_COUNTRIES = ["Germany", "Spain", "Turkey"]
+const SCORES = collect(1.0:0.2:5.0)
+
+function work_ethic_freq(country, wave)
+    rows = clean[(clean.S003 .== country) .& (clean.S002EVS .== wave) .&
+                 .!ismissing.(clean.work_ethic), :]
+    counts = [count(v -> isapprox(v, s; atol = 1e-8), rows.work_ethic) for s in SCORES]
+    DataFrame(score = SCORES, frequency = counts,
+              percentage = round.(100 .* counts ./ nrow(rows), digits = 2))
+end
+
+germany3 = work_ethic_freq("Germany", WAVES[3])
+germany4 = work_ethic_freq("Germany", WAVES[4])
+
+DataFrame(score = SCORES,
+          wave3_n = germany3.frequency, wave3_pct = germany3.percentage,
+          wave4_n = germany4.frequency, wave4_pct = germany4.percentage)
+```
+
+The book's Figures 8.4 and 8.5 give Germany's modal values: wave 3 peaks at a score of **3.8 with
+185 respondents (12.92%)** and wave 4 at **4.0 with 207 (12.30%)**. Both counts and both
+percentages reproduce exactly.
+
+```{julia}
+#| label: germany-check
+(wave3 = (n = sum(germany3.frequency),
+          mode = germany3.score[argmax(germany3.frequency)],
+          at_mode = maximum(germany3.frequency),
+          pct = germany3.percentage[argmax(germany3.frequency)]),
+ wave4 = (n = sum(germany4.frequency),
+          mode = germany4.score[argmax(germany4.frequency)],
+          at_mode = maximum(germany4.frequency),
+          pct = germany4.percentage[argmax(germany4.frequency)]))
+```
+
+**(b) One chart per country, both waves overlaid.**
+
+```{julia}
+#| label: fig-work-ethic
+#| fig-cap: "Distribution of work ethic scores in waves 3 and 4, as a percentage of each wave's respondents. Two series, so the wave carries the colour; countries are separate panels rather than a fourth and fifth hue. Bars are dodged rather than drawn transparently on top of each other — overlapping fills produce a third colour that reads as a third category."
+fig = Figure(size = (900, 720))
+axes_ = [Axis(fig[i, 1];
+              title = P2_COUNTRIES[i],
+              ylabel = "% of respondents",
+              xlabel = i == 3 ? "Work ethic score (mean of five items)" : "",
+              xticks = (1.0:0.4:5.0, string.(1.0:0.4:5.0)),
+              limits = ((0.85, 5.15), (0, 14)))
+         for i in 1:3]
+
+for (i, country) in enumerate(P2_COUNTRIES)
+    for (j, wave) in enumerate(WAVES[3:4])
+        freq = work_ethic_freq(country, wave)
+        barplot!(axes_[i], freq.score .+ (j == 1 ? -0.05 : 0.05), freq.percentage;
+                 width = 0.09, color = series_color(j),
+                 label = j == 1 ? "Wave 3 (1999-2001)" : "Wave 4 (2008-2010)")
+    end
+end
+
+Legend(fig[0, 1], axes_[1]; orientation = :horizontal, framevisible = false)
+fig
+```
+
+**(c) What changed.** All three moved up, by very different amounts.
+
+- **Germany** moved most. The mode went from 3.8 to 4.0 and the mean from 3.48 to 3.73. Both
+  tails shifted: the share scoring 4.4 or above rose from **9.1% to 21.2%** while the share at
+  3.0 or below fell from 26.5% to 17.9%.
+- **Spain** barely moved (3.56 to 3.59). Its mode went the other way, 4.0 down to 3.8, and the
+  distribution widened slightly at both ends — the ≥4.4 share rose from 12.3% to 15.4% with the
+  ≤3.0 share flat at about 24%.
+- **Turkey** is a different distribution altogether: centred near 4.2, strongly left-skewed, and
+  in wave 4 the **mode is the 5.0 ceiling itself**. The share giving the maximum on all five
+  items doubled, from 13.3% to 26.0%.
+
+```{julia}
+#| label: work-ethic-shift
+#| tbl-cap: "Where each distribution sits and how much of it is in the tails. Every figure quoted in the discussion of Q1(c) comes from this table."
+function distribution_stats(country, wave)
+    f = work_ethic_freq(country, wave)
+    w = weights(f.frequency)
+    total = sum(f.frequency)
+    (mean = round(mean(f.score, w), digits = 2),
+     sd = round(std(f.score, w; corrected = false), digits = 2),
+     mode = f.score[argmax(f.frequency)],
+     pct_high = round(100 * sum(f.frequency[f.score .>= 4.4 - 1e-9]) / total, digits = 1),
+     pct_low = round(100 * sum(f.frequency[f.score .<= 3.0 + 1e-9]) / total, digits = 1),
+     pct_at_ceiling = round(100 * last(f.frequency) / total, digits = 1))
+end
+
+shift = DataFrame(country = String[], wave = String[], mean = Float64[], sd = Float64[],
+                  mode = Float64[], pct_high = Float64[], pct_low = Float64[],
+                  pct_at_ceiling = Float64[])
+for country in P2_COUNTRIES, (i, wave) in enumerate(WAVES[3:4])
+    push!(shift, (country, "wave $(i + 2)", distribution_stats(country, wave)...))
+end
+shift
+```
+
+The Turkish ceiling is a measurement problem, not a finding. When a quarter of respondents give
+the maximum on every item, the scale has stopped distinguishing between them, and any further
+strengthening of attitudes cannot show up. Turkey's mean is **censored from above**, so 4.27
+is a lower bound on where the distribution would sit on an unbounded scale — and the country
+whose work ethic the hypothesis most relies on is the one where the measure works least well.
+
+Ten years is one wave, and the movements are small against individual variation. Germany's 0.25
+shift is the largest of the three and amounts to roughly a third of the within-country standard
+deviation of 0.70. The gap between Germany and Turkey in the same wave is 0.54 — twice
+Germany's movement across two decades.
+
+## Q2. Life satisfaction over four waves {#p2-q2}
+
+**(a) Mean life satisfaction by wave, for countries surveyed in all four.**
+
+```{julia}
+#| label: tbl-life-sat-waves
+#| tbl-cap: "Mean life satisfaction by wave. Only the 11 countries present in all four waves."
+waves_per_country = combine(groupby(clean, :S003),
+                            :S002EVS => (x -> length(unique(x))) => :waves)
+const ALL_FOUR = sort(waves_per_country[waves_per_country.waves .== 4, :S003])
+
+life_sat = DataFrame(country = ALL_FOUR)
+for (i, w) in enumerate(WAVES)
+    life_sat[!, "wave$i"] = [round(mean(clean[(clean.S003 .== c) .& (clean.S002EVS .== w),
+                                              :A170]), digits = 2) for c in ALL_FOUR]
+end
+life_sat.change = round.(life_sat.wave4 .- life_sat.wave1, digits = 2)
+sort!(life_sat, :change)
+```
+
+Only **11 of 46 countries** appear in all four waves, all of them in Western Europe. The EVS
+expanded eastward after 1990, so the balanced panel is not a sample of Europe — it is a sample of
+the countries rich enough to have been surveyed in 1981.
+
+**(b) One line per country.**
+
+```{julia}
+#| label: fig-life-sat-waves
+#| fig-cap: "Mean life satisfaction across the four waves, for the 11 countries surveyed in all of them. Eleven series exceed the eight fixed categorical slots, so the palette is not extended: three countries carry colour and the rest are grey context, direct-labelled at the right edge."
+const HIGHLIGHT = ["Germany", "Spain", "Sweden"]
+
+fig = Figure(size = (900, 520))
+ax = Axis(fig[1, 1];
+          title = "Eleven countries, four decades, a range of 1.6 points",
+          ylabel = "Mean life satisfaction (1-10)",
+          xlabel = "Survey wave",
+          xticks = (1:4, ["1\n1981-84", "2\n1990-93", "3\n1999-2001", "4\n2008-10"]),
+          limits = ((0.85, 4.9), (6.2, 8.7)))
+
+for row in eachrow(life_sat)
+    row.country in HIGHLIGHT && continue
+    lines!(ax, 1:4, [row.wave1, row.wave2, row.wave3, row.wave4];
+           color = GRIDLINE, linewidth = 2)
+    text!(ax, 4.06, row.wave4; text = row.country, fontsize = 10,
+          align = (:left, :center), color = MUTED)
+end
+
+for (i, country) in enumerate(HIGHLIGHT)
+    row = only(eachrow(life_sat[life_sat.country .== country, :]))
+    values = [row.wave1, row.wave2, row.wave3, row.wave4]
+    lines!(ax, 1:4, values; color = series_color(i), linewidth = 2.5)
+    scatter!(ax, 1:4, values; color = series_color(i))
+    # Ink, not the series colour: the coloured line and dot beside the label already
+    # carry identity, and slot 3 sits below the 3:1 contrast floor for text.
+    text!(ax, 4.06, row.wave4; text = country, fontsize = 11,
+          align = (:left, :center), color = INK, font = :bold)
+end
+
+fig
+```
+
+**(c) What the averages do and do not show.** The dominant feature is how little moves.
+Denmark and Iceland sit near 8.1–8.4 for thirty years; France near 6.7–7.1. The **country
+ranking is nearly fixed**, and the cross-country spread (about 1.6 points) is far larger than any
+country's movement over four waves.
+
+Within that, three things are visible:
+
+- **Spain and Italy rose most** (+0.69 and +0.75 from wave 1 to wave 4), both from low starting
+  points, both over the decades of their post-1980 convergence.
+- **Germany fell 0.45**, and the path is not a trend — 7.22, 7.03, 7.43, 6.77. The wave-4 value
+  is the lowest of the four and the drop from wave 3 is 0.66, the largest single-wave move in the
+  table.
+- **Sweden fell 0.35**, entirely between waves 2 and 3 (7.99 → 7.62).
+
+**What a mean of a 1–10 ordinal scale hides**, and what would supplement it:
+
+1. **The distribution.** A mean of 7.0 is produced both by everyone answering 7 and by half
+   answering 4 and half answering 10. The share below some threshold — say the proportion
+   answering 5 or less — measures something a mean cannot, and is the quantity relevant to
+   welfare.
+2. **Spread.** Standard deviations here run from about 1.7 to 3.1 across countries. Two countries
+   with equal means and that difference in spread are not in the same state.
+3. **Composition.** The samples are not the same people, and not even the same kind of people —
+   the population ages between waves, and [Q3](#p2-q3) shows life satisfaction correlates with
+   age, health and income. Some of the wave-to-wave movement is a changing sample.
+4. **Precision.** Nothing above has an interval attached. With 300–1,700 respondents per country
+   per wave, a standard error on a mean is roughly 0.05–0.13, so a 0.1-point move is not
+   distinguishable from noise. This is what Part 8.3 fixes.
+
+**(d) Events behind two of these.** Germany's fall between waves 3 and 4 has an obvious
+candidate: the wave-4 fieldwork (2008–2010) sits on the financial crisis, and German
+unemployment had risen through the Hartz reforms of 2003–2005 to a post-reunification peak near
+11% in 2005. The German figures back this up specifically — unemployment among wave-4 German
+respondents is **11.2%**, and their mean life satisfaction is **4.61**, the lowest of any
+employment group in any of the 46 countries. A large and unusually miserable unemployed group is
+enough to move a national average.
+
+Spain's rise from 6.60 to 7.29 spans its entry into the European Communities in 1986, two decades
+of income convergence, and the construction boom. Wave 4 caught Spain in 2008–2010, when
+unemployment was climbing past 20% — yet the average was still at its highest. Whatever drove
+the long rise was strong enough to survive the crisis, which is a caution against reading these
+averages as a business-cycle indicator.
+
+## Q3. Correlations {#p2-q3}
+
+**(a)** Employment status and sex are text, so the correlation table needs numeric versions
+first. Full-time employment is coded 1 for full-time, 0 for unemployed, and **missing for the
+other six statuses** — the variable is a contrast between two groups, not an employment
+indicator, so retired and part-time respondents must be excluded rather than coded 0.
+
+```{julia}
+#| label: tbl-correlations
+#| tbl-cap: "Correlation with life satisfaction and with work ethic, wave 4. Reproduces the book's Figure 8.4."
+wave4.full_time = [s == "Full time" ? 1.0 : s == "Unemployed" ? 0.0 : missing
+                   for s in wave4.X028]
+wave4.female = [s == "Female" ? 1.0 : 0.0 for s in wave4.X001]
+
+const CORR_VARS = ["A170" => "Life satisfaction", "work_ethic" => "Work ethic",
+                   "X003" => "Age", "Education_1" => "Education",
+                   "full_time" => "Full-time employment", "female" => "Female",
+                   "A009" => "Self-reported health", "X047D" => "Income",
+                   "X011_01" => "Number of children", "percentile" => "Relative income"]
+
+function pairwise_cor(a, b)
+    ok = .!ismissing.(wave4[!, a]) .& .!ismissing.(wave4[!, b])
+    round(cor(Float64.(wave4[ok, a]), Float64.(wave4[ok, b])), digits = 3)
+end
+
+DataFrame(variable = last.(CORR_VARS),
+          life_satisfaction = [pairwise_cor("A170", c) for (c, _) in CORR_VARS],
+          work_ethic = [pairwise_cor("work_ethic", c) for (c, _) in CORR_VARS],
+          observations = [sum(.!ismissing.(wave4[!, c]) .& .!ismissing.(wave4.A170))
+                          for (c, _) in CORR_VARS])
+```
+
+All ten pairs match the book's printed values to the last digit it shows.
+
+**(b) Reading the coefficients.** Signs first, because the coding decides them.
+
+**Life satisfaction.** The largest correlate is **self-reported health at 0.376** — bigger than
+income, bigger than employment, bigger than anything else measured. Two caveats: both are
+self-reports collected in the same interview, so a respondent's general disposition inflates the
+correlation, and causation runs both ways.
+
+**Relative income (0.296) correlates more strongly than raw income (0.235).** The percentile is a
+monotone transformation of income, so a change in correlation is a change in *functional form*:
+it says the linear-in-euros specification is wrong, and satisfaction responds more nearly to rank
+or to log income than to absolute amounts. The pooled percentile also picks up cross-country
+income differences, so part of the increase is between-country variation, not a better
+within-country measure.
+
+**Full-time employment (0.184)** is positive as coded: full-time (1) is more satisfied than
+unemployed (0). Note its observation count — 24,891 against 49,823 for every other row, because
+six of the eight statuses are excluded by construction.
+
+**Age (−0.082) and children (−0.017)** are both small and negative. The age relationship is the
+well-documented U-shape, and a linear correlation is the wrong summary of it: a coefficient near
+zero is consistent with a strong non-linear relationship, and this is a case where the number
+understates what is there.
+
+**Work ethic.** Its correlation with life satisfaction is **−0.034 — effectively zero**. This is
+the single most important number in the table for this project, because it says work ethic is not
+a proxy for wellbeing at the individual level. Whatever the country-level relationship in
+[Q4](#p2-q4) turns out to be, it is not an artefact of happier people having stronger work
+attitudes.
+
+Work ethic's own correlates all point one way: **education −0.145**, **relative income −0.187**,
+**income −0.152**, age **+0.133**. Stronger work ethic goes with being older, less educated, and
+poorer. That is a coherent picture — the measure is tracking something like traditionalism — and
+it is also a warning for Q4, because those characteristics are correlated with the *country*
+someone lives in. A cross-country correlation of work ethic with anything else risks picking up
+national income instead.
+
+## Q4. Does the employment gap track work ethic? {#p2-q4}
+
+**(a) and (b)** Mean life satisfaction by country and employment status, for the three statuses
+of interest, and the two differences: `D1` = full-time minus unemployed, `D2` = full-time minus
+retired.
+
+```{julia}
+#| label: tbl-gaps
+#| tbl-cap: "Mean life satisfaction by employment status, wave 4, with the two differences and each country's mean work ethic. Sorted by work ethic."
+const CATS = ["Full time", "Retired", "Unemployed"]
+
+gaps = DataFrame(country = String[], work_ethic = Float64[], full_time = Float64[],
+                 retired = Float64[], unemployed = Float64[], D1 = Float64[], D2 = Float64[])
+for c in sort(unique(wave4.S003))
+    rows = wave4[wave4.S003 .== c, :]
+    groups = [Float64.(rows[coalesce.(rows.X028 .== s, false), :A170]) for s in CATS]
+    any(g -> length(g) < 2, groups) && continue
+    means = mean.(groups)
+    push!(gaps, (c, mean(skipmissing(rows.work_ethic)), means...,
+                 means[1] - means[3], means[1] - means[2]))
+end
+sort!(gaps, :work_ethic)
+show_all(transform(gaps, names(gaps, Not(:country)) .=> ByRow(x -> round(x, digits = 2));
+                   renamecols = false))
+```
+
+All 46 countries have at least two respondents in each of the three groups. Spot checks against
+the solutions: Great Britain 7.53 / 7.93 / 6.03, Spain 7.34 / 7.21 / 7.19, Turkey 6.50 / 6.61 /
+5.76, Germany 7.26 / 6.85 / 4.61 — all exact.
+
+**The full-time/unemployed gap is positive in 44 of 46 countries.** The two exceptions are
+**Kosovo (−0.49)** and **Romania (−0.27)**, where the unemployed report *higher* satisfaction
+than full-time workers. The full-time/retired gap is far more mixed: negative in 13 countries,
+where the retired are the more satisfied group.
+
+Whether social norms explain this cannot be settled by the table. What the table does establish
+is that the gap is not a fixed quantity: it ranges from −0.49 to **+2.65 in Germany**, a spread
+larger than the entire cross-country range of national average life satisfaction. Something
+country-specific is at work. Candidates other than norms: the generosity of unemployment
+insurance, the *duration* of unemployment spells, and how selective unemployment is — where 2%
+are unemployed they are a different sort of person than where 30% are.
+
+**(c) Each difference against country work ethic.**
+
+```{julia}
+#| label: fig-gaps
+#| fig-cap: "Country mean work ethic against each life-satisfaction gap, wave 4. One series per panel, so one colour; the three countries used in Part 8.3 are labelled. The dashed rule is zero difference, not a fit."
+fig = Figure(size = (960, 460))
+panels = [(:D1, "Full-time minus unemployed", 1), (:D2, "Full-time minus retired", 2)]
+
+for (col, label, i) in panels
+    ax = Axis(fig[1, i];
+              title = label,
+              xlabel = "Country mean work ethic",
+              ylabel = i == 1 ? "Difference in mean life satisfaction" : "",
+              limits = ((2.7, 4.4), (-0.8, 2.9)))
+    hlines!(ax, [0]; color = BASELINE, linewidth = 1, linestyle = :dash)
+    scatter!(ax, gaps.work_ethic, gaps[!, col]; color = series_color(1))
+    for country in ["Great Britain", "Spain", "Turkey", "Germany"]
+        row = only(eachrow(gaps[gaps.country .== country, :]))
+        text!(ax, row.work_ethic, row[col]; text = country, fontsize = 10,
+              align = (:center, :bottom), offset = (0, 7), color = INK_SECONDARY)
+    end
+end
+
+fig
+```
+
+**(d) The correlations, and what they do to the hypothesis.**
+
+```{julia}
+#| label: gap-correlations
+DataFrame(difference = ["D1: full-time minus unemployed", "D2: full-time minus retired"],
+          correlation_with_work_ethic = round.([cor(gaps.D1, gaps.work_ethic),
+                                                cor(gaps.D2, gaps.work_ethic)], digits = 4),
+          countries = nrow(gaps))
+```
+
+Both reproduce the book's walk-through exactly (−0.1575654 and 0.4842609).
+
+**`D1` is −0.158 — the wrong sign for the hypothesis.** The paper's prediction is that where the
+work norm is stronger, being unemployed costs more, so `D1` should rise with work ethic. In this
+cross-section it falls slightly. The relationship is weak enough that with 46 countries it is not
+distinguishable from zero, so the honest statement is: **this data provides no support for the
+hypothesis, rather than evidence against it**.
+
+The scatter shows why, and it is not subtle. The high-work-ethic countries in wave 4 are Turkey,
+Bulgaria, Kosovo, Cyprus, Georgia, Albania and Moldova, and several of them have unemployment
+above 25%. Where unemployment is a mass condition it is both less stigmatising and less
+selective, which pushes `D1` down exactly where work ethic is highest. The two effects are
+confounded by construction, and the [Q3](#p2-q3) finding that work ethic correlates −0.19 with
+relative income is the same problem in individual-level form: **work ethic is partly a proxy for
+being poor**, and poor countries have high unemployment.
+
+**`D2` is +0.484 — strong, and in the direction norms predict.** Where the work ethic is stronger,
+the retired are much worse off relative to full-time workers; where it is weakest, the retired
+are *more* satisfied (Great Britain −0.40, Austria −0.31, Luxembourg −0.37). This is the more
+interesting result, and it is the comparison where the norm argument should be *weakest* — the
+introduction argues that norms of working apply less to the elderly.
+
+Two readings, and this data cannot separate them:
+
+1. **Norms extend to the retired.** In strongly pro-work societies, leaving work is itself
+   costly, so retirement carries some of the same penalty as unemployment.
+2. **Pensions, not norms.** High-work-ethic countries here are poorer countries with weaker
+   pension systems. The retired are worse off because they have less money.
+
+Reading (2) is the more parsimonious one given that work ethic correlates −0.15 with income at
+the individual level, and it does not require the norm mechanism at all. `D2` correlating three
+times more strongly than `D1` is a signal that the country-level work-ethic variable is carrying
+national income, which affects the retired directly.
+
+# Part 8.3 — Confidence intervals for a difference in means {#part-8.3}
+
+Every difference in Part 8.2 was a point estimate with nothing attached. A difference of 0.15 in
+Spain and 1.51 in Great Britain are not comparable until it is known how precisely each was
+measured.
+
+For a single mean, the standard error is the sample SD over the root of the sample size. For a
+difference between two independent groups, the standard errors combine in quadrature:
+
+$$\text{SE}(\bar{x}_1 - \bar{x}_2) = \sqrt{\text{SE}_1^2 + \text{SE}_2^2}
+  = \sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}$$
+
+Independence is what licenses adding the variances, and it holds here — the full-time and
+unemployed respondents are different people. It would *not* hold in the paired design of
+[Project 2](../02-data-from-experiments/index.qmd), where the same subjects generate both groups.
+
+## Q1. Three countries, low, middle and high work ethic {#p3-q1}
+
+From the [Q4 table](#p2-q4), sorted by work ethic across 46 countries: **Great Britain** ranks
+5th (3.29, bottom third), **Spain** 20th (3.59, middle third), **Turkey** 46th (4.27, top). These
+are the book's three.
+
+**(a) Means, standard deviations and counts.**
+
+```{julia}
+#| label: tbl-ci-inputs
+#| tbl-cap: "Life satisfaction by employment status for the three chosen countries, wave 4. Reproduces the book's Solution figure 8.14."
+const P3_COUNTRIES = ["Turkey", "Spain", "Great Britain"]
+
+group_values(country, status) =
+    Float64.(wave4[(wave4.S003 .== country) .&
+                   coalesce.(wave4.X028 .== status, false), :A170])
+
+ci_inputs = DataFrame(country = String[], status = String[], n = Int[],
+                      mean = Float64[], sd = Float64[], se = Float64[])
+for country in P3_COUNTRIES, status in CATS
+    x = group_values(country, status)
+    push!(ci_inputs, (country, status, length(x), round(mean(x), digits = 2),
+                      round(std(x), digits = 2), round(std(x) / sqrt(length(x)), digits = 4)))
+end
+ci_inputs
+```
+
+Every mean, SD and count matches the published table. The standard errors show immediately where
+the imprecision will come from: Great Britain's unemployed group has 78 respondents against 334
+full-time, so its SE is 0.248 against 0.101. **The small group dominates the width of the
+interval**, which is why the unemployed comparisons are less precise than the retired ones
+despite the differences being larger.
+
+**(b) The differences, their standard errors and 95% intervals.**
+
+```{julia}
+#| label: tbl-ci
+#| tbl-cap: "95% confidence intervals for differences in mean life satisfaction, wave 4."
+const Z = 1.96
+
+ci_table = DataFrame(country = String[], comparison = String[], difference = Float64[],
+                     se = Float64[], half_width = Float64[], lower = Float64[],
+                     upper = Float64[], excludes_zero = Bool[])
+for country in P3_COUNTRIES
+    for (other, label) in [("Unemployed", "Full-time - unemployed"),
+                           ("Retired", "Full-time - retired")]
+        x, y = group_values(country, "Full time"), group_values(country, other)
+        diff = mean(x) - mean(y)
+        se = sqrt(var(x) / length(x) + var(y) / length(y))
+        push!(ci_table, (country, label, round(diff, digits = 3), round(se, digits = 4),
+                         round(Z * se, digits = 3), round(diff - Z * se, digits = 3),
+                         round(diff + Z * se, digits = 3), abs(diff) > Z * se))
+    end
+end
+ci_table
+```
+
+These match the book's R walk-through exactly: Great Britain 1.51 ± 0.524 and −0.398 ± 0.302,
+Spain 0.145 ± 0.520 and 0.127 ± 0.330, Turkey 0.737 ± 0.449 and −0.107 ± 0.452.
+
+**(c) Cross-check with a t-test.** Welch's t-test uses the same standard error but a t
+distribution with estimated degrees of freedom instead of the normal's 1.96, so the intervals
+should be marginally wider.
+
+```{julia}
+#| label: tbl-ttest
+#| tbl-cap: "Welch's t-test against the manual intervals. Julia's UnequalVarianceTTest is R's t.test default."
+ttest_table = DataFrame(country = String[], comparison = String[], manual = Float64[],
+                        welch = Float64[], t = Float64[], df = Float64[], p = Float64[])
+for row in eachrow(ci_table)
+    other = endswith(row.comparison, "unemployed") ? "Unemployed" : "Retired"
+    x, y = group_values(row.country, "Full time"), group_values(row.country, other)
+    test = UnequalVarianceTTest(x, y)
+    lower, upper = confint(test)
+    push!(ttest_table, (row.country, row.comparison, row.half_width,
+                        round((upper - lower) / 2, digits = 3),
+                        round(test.t, digits = 3), round(test.df, digits = 1),
+                        # `digits` would print the smallest p-value as 0.0; `sigdigits`
+                        # keeps it readable however small it gets.
+                        round(pvalue(test), sigdigits = 2)))
+end
+ttest_table
+```
+
+The two agree to within 0.01 in every case, and the largest gap is Turkey's retired comparison
+(0.452 against 0.453) where the smaller group has 201 respondents. The book's walk-through prints
+Turkey's t-test interval as `[0.2873459, 1.1875704]`, which this reproduces to seven digits.
+
+The p-values add what the intervals imply: Great Britain's full-time/unemployed difference has
+p = 1.5 × 10⁻⁷, Turkey's p = 0.0014, and Spain's p = 0.59.
+
+::: {.callout-warning}
+## The book's Solutions page computes these intervals differently — and gets them wrong
+
+The project text states the correct formula, $\sqrt{s_1^2/n_1 + s_2^2/n_2}$, and the R
+walk-through implements it. But the Solutions page (Figures 8.15–8.18, built in Excel) uses
+$\sqrt{s_1^2 + s_2^2}$ as an "SD of difference in means" and then divides by $\sqrt{n_1 + n_2}$:
+
+```{julia}
+#| label: solutions-formula
+published = DataFrame(
+    country = ["Great Britain", "Spain", "Turkey", "Great Britain", "Spain", "Turkey"],
+    comparison = repeat(["Full-time - unemployed", "Full-time - retired"], inner = 3),
+    published_half_width = [0.28, 0.25, 0.32, 0.21, 0.21, 0.31])
+
+check = DataFrame(country = String[], comparison = String[], sd_combined = Float64[],
+                  n_combined = Int[], solutions_half_width = Float64[],
+                  correct_half_width = Float64[])
+for row in eachrow(ci_table)
+    other = endswith(row.comparison, "unemployed") ? "Unemployed" : "Retired"
+    x, y = group_values(row.country, "Full time"), group_values(row.country, other)
+    sd_combined = sqrt(var(x) + var(y))
+    n_combined = length(x) + length(y)
+    push!(check, (row.country, row.comparison, round(sd_combined, digits = 2), n_combined,
+                  round(Z * sd_combined / sqrt(n_combined), digits = 3), row.half_width))
+end
+leftjoin(check, published, on = [:country, :comparison])
+```
+
+`solutions_half_width` reproduces the published figures to the two decimals they print, so this
+is the formula they used. It is not the same quantity: dividing a combined SD by
+$\sqrt{n_1 + n_2}$ only coincides with the correct expression when the two groups are equal in
+size and variance, and here they never are — Great Britain's unemployed group is a quarter the
+size of its full-time group.
+
+**The published intervals are too narrow by 40% to 106%.** Great Britain's full-time/retired
+interval is printed as ±0.21 when it is ±0.30; Spain's full-time/unemployed as ±0.25 when it is
+±0.52.
+
+**None of the six conclusions change**, which is why the error survived: every interval that
+excludes zero still excludes it, and every one that contains zero still contains it. The
+substantive answers on the Solutions page are right. Only the widths are wrong, and this page
+uses the text's formula and the R walk-through's numbers.
+:::
+
+**(d) The differences with their intervals.**
+
+```{julia}
+#| label: fig-ci
+#| fig-cap: "Difference in mean life satisfaction with 95% confidence intervals, wave 4, countries ordered by work ethic from lowest to highest. Two series, so the comparison carries the colour. Error bars are the half-widths from the table above; the zero rule is what each interval is read against."
+fig = Figure(size = (860, 500))
+ax = Axis(fig[1, 1];
+          title = "Full-time workers are more satisfied than the unemployed; against the retired it depends",
+          ylabel = "Difference in mean life satisfaction",
+          xlabel = "Ordered by country mean work ethic",
+          xticks = (1:3, ["Great Britain\n3.29 (low)", "Spain\n3.59 (middle)",
+                          "Turkey\n4.27 (high)"]),
+          limits = ((0.5, 3.5), (-1.0, 2.3)))
+hlines!(ax, [0]; color = BASELINE, linewidth = 1)
+
+const ORDERED = ["Great Britain", "Spain", "Turkey"]
+for (j, label) in enumerate(["Full-time - unemployed", "Full-time - retired"])
+    rows = [only(eachrow(ci_table[(ci_table.country .== c) .&
+                                  (ci_table.comparison .== label), :])) for c in ORDERED]
+    positions = collect((1:3) .+ (j == 1 ? -0.19 : 0.19))
+    barplot!(ax, positions, [r.difference for r in rows];
+             width = 0.34, color = series_color(j), label = label)
+    errorbars!(ax, positions, [r.difference for r in rows], [r.half_width for r in rows];
+               color = INK_SECONDARY, whiskerwidth = 12, linewidth = 2)
+end
+
+Legend(fig[0, 1], ax; orientation = :horizontal, framevisible = false)
+fig
+```
+
+**(e) Reading the six intervals.** Two clean results, three nulls, and one that matters.
+
+**Full-time versus unemployed.** All three differences are positive, but only two are
+distinguishable from zero.
+
+- **Great Britain: 1.51 [0.98, 2.03].** The largest gap and the most precisely estimated relative
+  to its size. On a 1–10 scale a point and a half is substantial — comparable to the entire
+  spread between the highest and lowest country averages in the balanced panel.
+- **Turkey: 0.74 [0.29, 1.19].** Half the British gap, still excludes zero. Turkey's interval is
+  the narrowest of the three despite the largest standard deviations, because it has 299
+  unemployed respondents against Great Britain's 78.
+- **Spain: 0.15 [−0.38, 0.67].** Indistinguishable from zero. The interval is wide enough to
+  contain both no difference and a gap of two-thirds of a point, so this is *uninformative*
+  rather than evidence of no difference — a distinction the Solutions' narrower ±0.25 obscures.
+
+**And this is the ordering the hypothesis predicts backwards.** Great Britain has the *lowest*
+work ethic of the three and the largest gap; Turkey has the highest work ethic and a gap half the
+size. Spain sits in the middle on work ethic and has no measurable gap at all. Three countries
+is not a test, but it is the same pattern as the −0.158 correlation across all 46.
+
+**Full-time versus retired.** Only Great Britain's differs from zero, and it is negative:
+**−0.40 [−0.70, −0.10]**, p = 0.010. British retirees are *more* satisfied than full-time
+workers. Spain (0.13 [−0.20, 0.46]) and Turkey (−0.11 [−0.56, 0.35]) are both nulls with
+intervals wide enough to include moderate effects either way.
+
+**On precision generally.** The half-widths run from 0.30 to 0.52 while the differences run from
+0.11 to 1.51 — so the measurement error is the same order of magnitude as most of the effects.
+Two consequences worth being explicit about:
+
+1. **The country-level `D1` and `D2` values in [Part 8.2](#p2-q4) inherit this.** Each of those
+   46 differences carries an interval of roughly ±0.3 to ±0.6, and the correlations of −0.158 and
+   0.484 were computed as though they were exact. The attenuation from that noise biases both
+   correlations toward zero, which weakens the negative `D1` finding and means the true `D2`
+   relationship is, if anything, stronger than 0.484.
+2. **Precision is driven by the smallest group, not the sample.** Wave 4 has 49,823 respondents;
+   these intervals are set by groups of 73 to 78 people. Norway has 7 unemployed respondents and
+   the Netherlands 14 — country-level differences for them are essentially unmeasured, and they
+   entered the Part 8.2 correlations with the same weight as Turkey's 299.
+
+None of this identifies a causal effect. Unemployment is not assigned at random, and the same
+characteristics that make someone likely to become unemployed — poor health, low education —
+independently reduce life satisfaction. The correlation of 0.376 between satisfaction and health
+is larger than any employment gap here. What would help: a **natural experiment** such as a plant
+closure, which makes job loss independent of the individual; or **panel data** on the same person
+before and after, which differences out everything fixed about them. The Winkelmann study the
+project follows uses exactly that panel strategy, which is why it can say more than this
+cross-section can.
+
+## What this project covered
+
+| Concept | Where | In Julia |
+|---|---|---|
+| Stacking sheets into one frame | Q8.1 Q1 | `reduce(vcat, [DataFrame(XLSX.readtable(...))])` |
+| Showing every row of a long table | Q8.1 Q6 | `show_all(df)` — Quarto elides the middle |
+| Variable labels that survive `select` | Q8.1 Q1 | `colmetadata!(df, col, "label", v; style = :note)` |
+| String sentinel to `missing` | Q8.1 Q3 | comprehension over every column |
+| Recoding a verbal scale | Q8.1 Q3 | `Dict` lookup that throws on an unknown label |
+| Splitting one column into two | Q8.1 Q3 | `split(v, " : ")`, then take each part |
+| Wave-specific complete cases | Q8.1 Q4 | `(wave .!= w) .| ok`, checked by per-wave counts |
+| Row means across columns | Q8.1 Q5 | `mean(Float64[row[c] for c in cols])` |
+| Percentiles of a distribution | Q8.1 Q5 | `ecdf(x)(x)` from StatsBase |
+| Pairwise-complete correlation | Q8.2 Q3 | mask both columns, then `cor` |
+| Weighted mean and SD | Q8.2 Q1 | `mean(x, weights(w))`, `std(x, weights(w))` |
+| Grey-context emphasis past 8 series | Q8.2 Q2 | grey lines plus 3 coloured, direct-labelled |
+| SE of a difference in means | Q8.3 Q1 | `sqrt(var(x)/length(x) + var(y)/length(y))` |
+| Welch's t-test | Q8.3 Q1 | `UnequalVarianceTTest(x, y)`, `confint`, `pvalue` |
+| Error bars on a column chart | Q8.3 Q1 | `errorbars!(ax, x, y, half_width)` |
+
+The [R → Julia page](../../reference/r-to-julia.qmd) has the full translation table.
