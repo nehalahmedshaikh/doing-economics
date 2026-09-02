@@ -239,3 +239,78 @@ notes = """
 Stands in for GNI per capita in the alternative index. The two diverge sharply where \
 national income does not accrue to resident households - Luxembourg is the clearest \
 case, and it moves 23 rank places between the two indices."""
+
+# ── Project 5: Measuring inequality ──────────────────────────────────────────
+
+[[file]]
+project = 5
+name = "gcip-global-income-distribution"
+dest = "05/gcip-gid-excel.zip"
+url = "https://web.archive.org/web/20170318032240id_/http://gcip.info/media/gid-excel.zip"
+description = """
+Global Consumption and Income Project, Global Income Distribution preview release: \
+8,839 country-year rows for 161 countries, 1960-2015. Contains decile income levels \
+(income1-income10) and decile shares (share1-share10), plus GCIP's own Gini, Palma \
+ratio, mean income and population. Zip holds `gid-previewexcel.csv` and \
+`gid-codebook.txt`; read in place with ZipFile.jl rather than unpacked."""
+publisher = "Global Consumption and Income Project (Lahoti, Jayadev and Reddy)"
+licence = "Released for research use by the GCIP; recovered from the Internet Archive"
+stable = true
+vintage = "2026-09-02"
+sha256 = "70c258833dda389ab09ce55d2e4e7fb22525c416c464479fb155ab5d3dfe63b2"
+notes = """
+THE ORIGINAL SOURCE IS GONE. The book sends you to the GCIP site to download \
+`GCIPrawdata.xlsx`. `gcip.info` has since been taken over by an SEO spam operation and \
+`globalinc.org` redirects to an unrelated domain, so neither the file nor the project \
+site can be reached. Even the Internet Archive's later captures of gcip.info are the \
+spam site.
+
+This entry therefore points at an Internet Archive capture from 18 March 2017, before \
+the takeover - the `id_` form of the Wayback URL, which returns the original bytes \
+rather than a rewritten page. That URL is stable and checksummable, which is why the \
+entry is marked frozen.
+
+The export differs from the book's: columns are `income1`-`income10` and \
+`share1`-`share10` rather than `Decile 1 Income`-`Decile 10 Income`, and it is CSV \
+inside a zip rather than an xlsx. The numbers are the same. Cumulative decile shares \
+computed from it reproduce the book's published solutions exactly for China 2014 and \
+for the United States in both 1980 and 2014, and to within 0.03 percentage points on \
+the first three deciles for China 1980."""
+
+[[file]]
+project = 5
+name = "owid-lifespan-inequality-female"
+dest = "05/lifespan-inequality-gini-females.csv"
+url = "https://ourworldindata.org/grapher/gini-coefficient-of-lifespan-inequality-in-females.csv"
+description = """
+Gini coefficient of lifespan inequality among females, by country and year from 1950. \
+Measures how unequally length of life is distributed within a population, which is the \
+mortality-inequality counterpart to income inequality."""
+publisher = "Our World in Data, from the Global Burden of Disease and UN WPP"
+licence = "CC BY 4.0"
+stable = false
+vintage = "2026-09-02"
+sha256 = "d1d1bd3874a03aad19bd12424f8a4141bced6939a2e9d5caf3922394dc7560f8"
+notes = """
+The book has you find the chart on the Our World in Data site and click the download \
+icon. Every OWID grapher page also serves its data at `<slug>.csv`, which is the same \
+file and is scriptable. OWID refreshes its underlying sources, so this is not frozen."""
+
+[[file]]
+project = 5
+name = "owid-gender-gap-education"
+dest = "05/gender-gap-education-levels.csv"
+url = "https://ourworldindata.org/grapher/gender-gap-education-levels.csv"
+description = """
+Girls and boys in primary, lower secondary and upper secondary education, and women and \
+men in tertiary education, by country and year. Used for the gender-inequality measure \
+in Part 5.2."""
+publisher = "Our World in Data, from UNESCO Institute for Statistics"
+licence = "CC BY 4.0"
+stable = false
+vintage = "2026-09-02"
+sha256 = "af3b9f596a526febb7f9e77ae63912f3f6b91eeab706aece1daddd4f75538f3c"
+notes = """
+Part 5.2 asks the reader to choose a gender education measure; this is the choice made, \
+stated on the project page. Coverage nominally runs from 1820 but is thin before the \
+1970s, so the project restricts to years with broad reporting."""

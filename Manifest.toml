@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "f663671caada8697f05832c4b8b95cf4f79593ed"
+project_hash = "7dee583128df4f93068a5f6ff1905b73d77bac82"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -405,7 +405,7 @@ uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 version = "0.9.5"
 
 [[deps.DoingEconomics]]
-deps = ["AlgebraOfGraphics", "CSV", "CairoMakie", "DataFrames", "Dates", "DelimitedFiles", "Downloads", "HypothesisTests", "Makie", "Printf", "Random", "ReadStatTables", "SHA", "Statistics", "StatsBase", "TOML", "XLSX"]
+deps = ["AlgebraOfGraphics", "CSV", "CairoMakie", "DataFrames", "Dates", "DelimitedFiles", "Downloads", "HypothesisTests", "JSON3", "Makie", "Printf", "Random", "ReadStatTables", "SHA", "Statistics", "StatsBase", "TOML", "XLSX"]
 path = "."
 uuid = "9bbc99c8-0b7f-4e27-95e6-e09c5d1c804e"
 version = "0.1.0"
@@ -1808,6 +1808,12 @@ deps = ["ArgCheck", "CodecInflate64", "CodecZlib", "InputBuffers", "PrecompileTo
 git-tree-sha1 = "83f728ecb873c58b794964f8b4bed811814d4b0d"
 uuid = "49080126-0e18-4c2a-b176-c102e4b3760c"
 version = "2.6.0"
+
+[[deps.ZipFile]]
+deps = ["Libdl", "Printf", "Zlib_jll"]
+git-tree-sha1 = "f492b7fe1698e623024e873244f10d89c95c340a"
+uuid = "a5390f91-8eb1-5f08-bee0-b1d1ffed6cea"
+version = "0.10.1"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
