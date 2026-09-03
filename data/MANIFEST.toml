@@ -530,3 +530,87 @@ them is sensitive to the top rungs.
 
 Four attitude items need reverse-coding before they can be averaged into an index: cog_2, \
 cog_5, scepticism_6 and scepticism_7."""
+
+[[file]]
+project = 12
+name = "hk-household-income"
+dest = "12/hk-cash-handout.xlsx"
+url = "https://www.core-econ.org/wp-content/uploads/2022/05/doing-economics-project-12-datafile.xlsx"
+description = """
+Hong Kong monthly household income at the 15th, 25th, 50th, 75th and 85th percentiles, \
+2009-2016, pre-intervention. One sheet holding three blocks: nominal income, the \
+year-on-year change in consumer prices, and real income already deflated to 2009 \
+prices. 9.7 KB - the smallest dataset in the repository."""
+publisher = "Hong Kong Census and Statistics Department, via CORE Econ"
+licence = "Redistributed by CORE Econ for teaching use"
+stable = true
+vintage = "2026-09-03"
+sha256 = "06c8ff271b272787c3b5abc45f3c499bbcf1c3da89588690a4ed02d3135cc37f"
+notes = """
+The percentile rows are listed DESCENDING - 85th first, 15th last. The Gini construction \
+assigns household counts to income groups in ascending order, so the rows have to be \
+sorted before the counts are applied. Getting this wrong still produces a plausible \
+Gini (0.434 rather than 0.469), which is why the page checks the economy-wide total \
+against the published figure.
+
+Blocks are separated by blank rows rather than being separate sheets, so the file is read \
+as a cell matrix by row index rather than with readtable."""
+
+[[file]]
+project = 12
+name = "hkupop-overall-satisfaction"
+dest = "12/datatables.csv"
+url = "https://raw.githubusercontent.com/aeturrell/core_python/main/data/datatables.csv"
+description = """
+Half-yearly public satisfaction with the HKSAR Government, 1997-2022, from the Hong Kong \
+Public Opinion Research Institute (formerly the HKU Public Opinion Programme). Columns \
+are bilingual Chinese/English and include the response breakdown, the net value \
+(satisfied minus dissatisfied), the mean rating, base and standard error."""
+publisher = "Hong Kong Public Opinion Research Institute (HKPORI), formerly HKU POP"
+licence = "Public opinion data released by HKPORI; redistributed via CORE Econ's Python implementation"
+stable = true
+vintage = "2026-09-03"
+sha256 = "d58d389fe883c907005a4f71b20bc88dd6ad7baf83e3a5e1ba41087c7c0f60d1"
+notes = """
+NOT OBTAINABLE FROM THE SOURCE THE BOOK NAMES. The book sends you to the HKU POP overall \
+performance page and says to click "Download Excel". HKU POP became HKPORI in 2019 and \
+the page is now at a2024.pori.hk, where the table is rendered client-side behind \
+Cloudflare bot protection - there is no static file to fetch, and the page HTML contains \
+no table at all.
+
+The Internet Archive has the old HKU POP series as plain text \
+(sargperf/combined_sat/poll/combined_sat.txt), but that publishes only the POSITIVE \
+percentages for six performance questions. The book's Question 3 needs the NET value, \
+positive minus negative, and the companion dissatisfaction series is not archived as \
+data.
+
+This copy therefore comes from CORE Econ's own Python implementation of the book \
+(github.com/aeturrell/core_python), whose data directory carries the file under the same \
+name the book's walk-through uses. It has the full response breakdown including the net \
+value, so it answers the question the book actually asks.
+
+Column names are bilingual with no separator, e.g. "淨值Netvalue" and \
+"調查開始日期Survey Start Date". Percentages carry a "%" and counts carry thousands \
+separators, so both need stripping before parsing."""
+
+[[file]]
+project = 12
+name = "hkupop-livelihood-satisfaction"
+dest = "12/satisfaction_datatables.csv"
+url = "https://raw.githubusercontent.com/aeturrell/core_python/main/data/satisfaction_datatables.csv"
+description = """
+Half-yearly public satisfaction with the HKSAR Government's performance in improving \
+people's livelihood, 1997-2022, from HKPORI. Same column structure as datatables.csv. \
+This is the social indicator the book's Question 3(b) asks for."""
+publisher = "Hong Kong Public Opinion Research Institute (HKPORI), formerly HKU POP"
+licence = "Public opinion data released by HKPORI; redistributed via CORE Econ's Python implementation"
+stable = true
+vintage = "2026-09-03"
+sha256 = "44faca4967bb5ca118a601cd9c43fd53ef21a0113eb985075bf6c58f3fae6784"
+notes = """
+Same retrieval problem and the same resolution as datatables.csv - see that entry.
+
+The book's Question 3(b) says to pick "one or two other indicators that are directly \
+related to the policy", suggesting degree of prosperity or degree of equality. CORE's own \
+Python implementation uses performance in improving people's livelihood, and this is the \
+file it saves under this name, so that is the indicator used here."""

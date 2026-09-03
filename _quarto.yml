@@ -57,6 +57,8 @@ website:
             text: "10. Banking systems"
           - href: projects/11-willingness-to-pay/index.qmd
             text: "11. Willingness to pay"
+          - href: projects/12-hong-kong-handout/index.qmd
+            text: "12. Hong Kong cash handout"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd
