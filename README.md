@@ -36,7 +36,7 @@ Two deliberate departures:
 | 7 | [Supply and demand](https://nehalahmedshaikh.github.io/doing-economics/projects/07-supply-and-demand/) | ✅ Done |
 | 8 | [Measuring the non-monetary cost of unemployment](https://nehalahmedshaikh.github.io/doing-economics/projects/08-unemployment-cost/) | ✅ Done |
 | 9 | [Credit-excluded households in a developing country](https://nehalahmedshaikh.github.io/doing-economics/projects/09-credit-excluded/) | ✅ Done |
-| 10 | Characteristics of banking systems around the world | Planned |
+| 10 | [Characteristics of banking systems around the world](https://nehalahmedshaikh.github.io/doing-economics/projects/10-banking-systems/) | ✅ Done |
 | 11 | Measuring willingness to pay for climate change mitigation | Planned |
 | 12 | Government policies and popularity: Hong Kong cash handout | Planned |
 | 13 | Extra 1: Female labour supply and the macroeconomy | Planned |
@@ -69,12 +69,13 @@ quarto render projects/01-measuring-climate-change/index.qmd          # data is 
 │   ├── 06-management-practices/index.qmd
 │   ├── 07-supply-and-demand/index.qmd
 │   ├── 08-unemployment-cost/index.qmd
-│   └── 09-credit-excluded/index.qmd
+│   ├── 09-credit-excluded/index.qmd
+│   └── 10-banking-systems/index.qmd
 ├── src/DoingEconomics.jl   shared helpers: paths, chart theme, gini/lorenz,
 │                           frequency tables, index numbers, verified downloads
 ├── data/
 │   ├── MANIFEST.toml    every dataset: url, checksum, licence, vintage
-│   └── raw/             the datasets themselves, committed (20 MB)
+│   └── raw/             the datasets themselves, committed (39 MB)
 ├── scripts/
 │   ├── fetch_data.jl    re-download to refresh the series that change
 │   ├── verify_data.jl   check the working copy against the manifest
@@ -98,7 +99,7 @@ exact reproducibility.
 
 ## Data
 
-The datasets are committed, under `data/raw/` — 20 MB, which makes the repository work
+The datasets are committed, under `data/raw/` — 39 MB, which makes the repository work
 offline and stops it decaying as sources move. That is not hypothetical: Project 5's
 upstream, the Global Consumption and Income Project site, has been taken over by an
 unrelated operation, and the copy here came from a pre-takeover Internet Archive capture.

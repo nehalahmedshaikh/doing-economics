@@ -460,3 +460,40 @@ Missing values are empty cells rather than a sentinel string, which XLSX.jl read
 `missing` directly. That is unusual for this book and makes the file far less work than \
 Project 8's.
 """
+
+[[file]]
+project = 10
+name = "gfdd-june-2017"
+dest = "10/gfdd-june-2017.xlsx"
+url = "https://web.archive.org/web/20220401054046id_/https://thedocs.worldbank.org/en/doc/22711466094123120-0050022016/original/GlobalFinancialDevelopmentDatabaseJune2017.xlsx"
+description = """
+World Bank Global Financial Development Database, June 2017 version - the vintage the \
+book specifies. Five sheets: "Definitions and Sources" (110 indicators), \
+"Data - May 2017" (11,929 country-years), "Data - May 2017, reshaped", \
+"Data - June 2016" (11,826 country-years, 1960-2014) and "Summary Statistics". \
+The project uses the "Data - June 2016" tab, as the book does."""
+publisher = "World Bank (Global Financial Development Report team)"
+licence = "CC BY 4.0; recovered from the Internet Archive"
+stable = true
+vintage = "2026-09-03"
+sha256 = "3c0158a883ed84aa78af7e9dedd51be03bc9ba8876a720ac5d3ea32ab387fd83"
+notes = """
+THE LIVE URL IS A 404. The World Bank's Global Financial Development Database page still \
+lists "June 2017 Version" and links to \
+thedocs.worldbank.org/en/doc/22711466094123120-0050022016/original/\
+GlobalFinancialDevelopmentDatabaseJune2017.xlsx, but that file has been removed - the \
+link returns the World Bank's 404 page with a 200-sized HTML body, so a naive download \
+silently produces an HTML file named .xlsx. The November 2013 link is dead the same way, \
+while the November 2021 and September 2022 versions still download.
+
+This copy is the 1 April 2022 Internet Archive capture, requested in `id_` form so the \
+bytes are the original file rather than a rewritten page. A later revisit in April 2023 \
+carries the same WARC digest, so the capture is stable.
+
+Using a later version was the alternative. The book warns that results differ between \
+versions, and every figure on the project page is checked against the published \
+solutions, so the specified vintage is the one that lets those checks mean anything. The \
+September 2022 version remains available for anyone wanting current numbers.
+
+Note the sheet naming inside the workbook: the "June 2017" release contains tabs labelled \
+"Data - May 2017" and "Data - June 2016". The book uses the June 2016 tab."""

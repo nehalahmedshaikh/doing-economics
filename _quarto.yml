@@ -53,6 +53,8 @@ website:
             text: "8. Cost of unemployment"
           - href: projects/09-credit-excluded/index.qmd
             text: "9. Credit-excluded households"
+          - href: projects/10-banking-systems/index.qmd
+            text: "10. Banking systems"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd

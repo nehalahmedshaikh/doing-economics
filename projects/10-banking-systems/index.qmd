@@ -1,0 +1,731 @@
+---
+title: "10. Characteristics of banking systems around the world"
+subtitle: "Depth, access and stability across 200 countries, and what a weighted average changes"
+engine: julia
+julia:
+  exeflags: ["--project=@."]
+---
+
+The World Bank's Global Financial Development Database: 11,330 country-years from 1960 to 2014,
+110 indicators. This project takes eight of them, covering how **deep** a banking system is, how
+much **access** people have to it, and how **stable** it is — then asks whether stability
+improved after 2008.
+
+- **[Part 10.1](#part-10.1)** — summarizing the data
+- **[Part 10.2](#part-10.2)** — financial stability before and after the 2008 crisis
+
+New concepts: **box and whisker plots**, **weighted averages**, and **Winsorization** as a way
+to keep extreme observations without letting them dominate. Book pages:
+[project](https://books.core-econ.org/doing-economics/book/text/10-01.html),
+[R walk-through](https://books.core-econ.org/doing-economics/book/text/10-03.html),
+[solutions](https://books.core-econ.org/doing-economics/book/text/10-04.html).
+
+```{julia}
+#| label: setup
+#| output: false
+using XLSX, DataFrames
+using Statistics
+using HypothesisTests
+using CairoMakie
+using DoingEconomics
+
+CairoMakie.activate!(type = "svg")
+use_doingecon_theme!()
+```
+
+::: {.callout-important}
+## The file the book specifies is no longer downloadable
+
+The book sends you to the World Bank's Global Financial Development Database page and says to
+click **"June 2017 Version"**. That link is still on the page and still points at
+`GlobalFinancialDevelopmentDatabaseJune2017.xlsx` — but the file has been removed. The request
+returns the World Bank's 404 page as a 100 KB HTML body, so a naive download produces an HTML
+file with an `.xlsx` extension and the failure only surfaces when something tries to read it.
+The November 2013 link is dead the same way; November 2021 and September 2022 still work.
+
+The copy here is the **1 April 2022 Internet Archive capture**, requested in `id_` form so the
+bytes are the original file rather than a rewritten page. An April 2023 revisit carries the same
+WARC digest, so the capture is stable.
+
+Using a current version was the alternative, and the book warns results differ between versions.
+Since every figure below is checked against the published solutions, the specified vintage is
+what makes those checks mean anything. This is the second dataset in this repository whose
+official source has gone — [Project 5](../05-measuring-inequality/index.qmd)'s was the first.
+:::
+
+```{julia}
+#| label: read-gfdd
+path = rawpath("10", "gfdd-june-2017.xlsx")
+
+# The "June 2017" release contains tabs named "Data - May 2017" and "Data - June 2016".
+# The book uses the June 2016 tab, which is the one covering 1960-2014.
+gfdd = DataFrame(XLSX.readtable(path, "Data - June 2016"; infer_eltypes = true))
+rename!(gfdd, "Income Group" => :income)
+
+const INDICATORS = [
+    ("GFDD.DI.01", "Depth", "Private credit by deposit money banks to GDP (%)"),
+    ("GFDD.DI.02", "Depth", "Deposit money banks' assets to GDP (%)"),
+    ("GFDD.AI.01", "Access", "Bank accounts per 1,000 adults"),
+    ("GFDD.AI.02", "Access", "Bank branches per 100,000 adults"),
+    ("GFDD.AI.03", "Access", "Firms with a bank loan or line of credit (%)"),
+    ("GFDD.AI.04", "Access", "Small firms with a bank loan or line of credit (%)"),
+    ("GFDD.SI.01", "Stability", "Bank Z-score"),
+    ("GFDD.SI.05", "Stability", "Bank regulatory capital to risk-weighted assets (%)"),
+]
+const CODES = first.(INDICATORS)
+
+# Numeric columns arrive as `Any` because blanks are interleaved with numbers.
+num(x) = x === missing ? missing : x isa Number ? Float64(x) : tryparse(Float64, string(x))
+for col in vcat(CODES, "SP.POP.TOTL", "Year")
+    gfdd[!, col] = num.(gfdd[!, col])
+end
+
+(rows = nrow(gfdd), columns = ncol(gfdd),
+ years = extrema(skipmissing(gfdd.Year)),
+ countries = length(unique(gfdd.Country)))
+```
+
+```{julia}
+#| label: coverage
+DataFrame(code = CODES,
+          category = [c for (_, c, _) in INDICATORS],
+          indicator = [d for (_, _, d) in INDICATORS],
+          observations = [count(!ismissing, gfdd[!, c]) for c in CODES],
+          coverage_pct = [round(100 * count(!ismissing, gfdd[!, c]) / nrow(gfdd), digits = 1)
+                          for c in CODES])
+```
+
+**Coverage is the first thing to notice and it constrains everything after.** The two depth
+indicators are recorded for a large share of country-years; the two firm-level access indicators
+are recorded for very few, because they come from enterprise surveys run occasionally rather
+than from banking returns collected annually. Any comparison using `GFDD.AI.03` or `GFDD.AI.04`
+is working with a fraction of the sample, and not a random fraction.
+
+## Part 10.1 — Summarizing the data {#part-10.1}
+
+### Q1. What each indicator measures, and where it misleads {#p1-q1}
+
+The workbook's own definitions:
+
+```{julia}
+#| label: definitions
+definitions = DataFrame(XLSX.readtable(path, "Definitions and Sources"))
+wanted = definitions[in(CODES).(coalesce.(definitions[!, 1], "")), :]
+select(wanted, 1 => :code, 3 => :short_description)
+```
+
+**Depth.**
+
+- **Private credit by deposit money banks to GDP** is the standard measure of financial depth:
+  outstanding credit from resident deposit-taking banks to the non-financial private sector,
+  scaled by GDP. It is a good measure because it captures the function that matters — moving
+  savings to private borrowers — rather than the mere existence of institutions. Its weakness is
+  **institutional coverage**: where the state provides credit directly or owns the enterprises
+  doing the borrowing, real intermediation is happening that this indicator does not count, so it
+  understates depth in state-dominated economies.
+- **Deposit money banks' assets to GDP** is broader, and the breadth cuts both ways. It includes
+  lending to state-owned enterprises, which fixes part of the problem above. But it also counts
+  assets that are not lending to the economy at all — most importantly **government bonds**. A
+  banking system that funds the state by holding its debt looks as deep on this measure as one
+  funding firms, which are very different economic functions.
+
+**Access.**
+
+- **Bank accounts per 1,000 adults** is the most direct measure of whether people are inside the
+  financial system. Two problems: **one person can hold several accounts**, so the numerator is
+  accounts rather than people, and the denominator effect varies with how many accounts a typical
+  customer holds — which itself differs by country. Cross-country differences may reflect banking
+  conventions rather than access.
+- **Bank branches per 100,000 adults** measures physical reach. Its weakness is **distribution**:
+  the same branch count is very different if the branches are spread across a country or
+  clustered in the capital, and the indicator cannot tell them apart. It is also increasingly
+  **obsolete as a measure** — a country with widespread mobile and online banking needs fewer
+  branches, so falling branch density can mean improving access.
+- **Firms with a bank loan or line of credit** narrows to a group with a clear demand for
+  credit, which removes some of the taste variation that troubles household measures. It remains
+  a mix of supply and demand: a low value is consistent with firms being refused *or* not
+  needing to borrow.
+- **Small firms with a bank loan or line of credit** is the policy-relevant version of the
+  same, because small and new firms are where credit rationing bites hardest — they have the
+  least collateral and no track record. It is the closest indicator here to what
+  [Project 9](../09-credit-excluded/index.qmd) measured at the household level.
+
+**Stability.**
+
+- **Bank Z-score** combines capitalisation, return and the volatility of returns into an
+  estimated distance from default, asset-weighted across banks. Higher is more stable. It is a
+  genuine risk measure rather than a balance-sheet ratio, which is its strength. Its blind spot
+  is **interconnectedness**: it scores each bank in isolation, so a system of individually sound
+  but mutually exposed banks scores well, and that is precisely the configuration that failed in
+  2008.
+- **Bank regulatory capital to risk-weighted assets** is the regulatory solvency ratio, the
+  inverse of leverage. More capital against risk-weighted assets means more capacity to absorb
+  losses. Its weakness is that **the risk weights are chosen**, and both the weights and the
+  accounting behind them differ across countries and over time, so the ratio is not comparable
+  across borders in the way its units suggest. It is also gameable: the same portfolio can be
+  made to look better capitalised by reclassifying assets.
+
+### Q2. Distributions and outliers {#p1-q2}
+
+```{julia}
+#| label: tbl-quartiles
+#| tbl-cap: "Distribution of each indicator across all country-years, with the count of observations beyond 1.5 times the interquartile range from the nearer quartile — the convention a box plot uses to draw an outlier."
+quartile_table = DataFrame(indicator = String[], n = Int[], min = Float64[], q1 = Float64[],
+                           median = Float64[], q3 = Float64[], max = Float64[],
+                           outliers = Int[], outlier_pct = Float64[])
+for (code, _, desc) in INDICATORS
+    v = Float64.(collect(skipmissing(gfdd[!, code])))
+    q1, q3 = quantile(v, [0.25, 0.75])
+    fence = 1.5 * (q3 - q1)
+    n_out = count(x -> x < q1 - fence || x > q3 + fence, v)
+    push!(quartile_table, (desc, length(v), round(minimum(v), digits = 2),
+                           round(q1, digits = 2), round(median(v), digits = 2),
+                           round(q3, digits = 2), round(maximum(v), digits = 2),
+                           n_out, round(100 * n_out / length(v), digits = 1)))
+end
+quartile_table
+```
+
+```{julia}
+#| label: fig-boxplots
+#| fig-cap: "Box and whisker plot for each indicator, outliers shown. One panel per indicator rather than one axis for all eight, because the indicators are measured in different units and on ranges differing by three orders of magnitude — a shared axis would flatten six of them into a line. One series throughout, so one colour."
+fig = Figure(size = (960, 620))
+for (k, (code, category, desc)) in enumerate(INDICATORS)
+    row, col = fldmod1(k, 4)
+    v = Float64.(collect(skipmissing(gfdd[!, code])))
+    ax = Axis(fig[row, col];
+              title = "$code\n$category", titlesize = 11,
+              xticksvisible = false, xticklabelsvisible = false,
+              xgridvisible = false)
+    boxplot!(ax, fill(1, length(v)), v;
+             width = 0.5, color = series_color(1), whiskerwidth = 0.4,
+             mediancolor = SURFACE, markersize = 4,
+             outliercolor = (series_color(1), 0.35), strokecolor = SURFACE, strokewidth = 0)
+    hidexdecorations!(ax; grid = true)
+end
+Label(fig[0, 1:4], "Every indicator is right-skewed with a long upper tail";
+      fontsize = 14, color = INK, halign = :left, padding = (8, 0, 0, 0))
+fig
+```
+
+**Every one of the eight is right-skewed**, and for six of them the box is narrow relative to the
+whiskers — most country-years cluster and a minority sit far above. The outlier counts in the
+table put numbers on it.
+
+**The two exceptions are the firm-level access indicators**, which have far fewer flagged
+outliers. That is not because firm credit is more evenly distributed but because those
+indicators are **bounded percentages** — a share of firms cannot exceed 100 — whereas bank
+accounts per 1,000 adults and assets-to-GDP have no ceiling. A bounded measure cannot produce a
+long tail.
+
+**Why so many outliers.** Three distinct causes, worth separating because they call for
+different responses:
+
+1. **Genuine structural differences.** Financial centres — Luxembourg, Hong Kong, Switzerland —
+   host banking systems sized for the world rather than for their own economies, so
+   credit-to-GDP ratios of several hundred per cent are real, not errors. Scaling by domestic GDP
+   is the problem, not the data.
+2. **Different banking technology.** A country where most transactions are mobile or online
+   needs few branches; a cash economy needs many. Both extremes appear as outliers on branch
+   density while describing normal arrangements.
+3. **Measurement and definition.** The capital ratio depends on national accounting and on
+   chosen risk weights, so some spread is the measurement apparatus rather than the thing
+   measured.
+
+Only the third is an argument for excluding observations. The first two are the variation the
+project is about, which is why [Q5](#p1-q5) uses Winsorization — pulling the tails in while
+keeping every country — rather than dropping anything.
+
+### Q3. One depth and one access indicator over time {#p1-q3}
+
+Following the book's examples: **deposit money banks' assets to GDP** for depth and **bank
+accounts per 1,000 adults** for access, 2000–2014.
+
+**(a) By income group and by region.**
+
+```{julia}
+#| label: tbl-depth-income
+#| tbl-cap: "Deposit money banks' assets to GDP (%), mean by income group, with the number of countries reporting. Reproduces the book's Solution figure 10.10."
+const INCOME_ORDER = ["Low income", "Lower middle income", "Upper middle income",
+                      "High income: nonOECD", "High income: OECD"]
+
+function group_means(indicator, groupcol, groups, years)
+    out = DataFrame(year = collect(years))
+    for g in groups
+        means, counts = Float64[], Int[]
+        for y in years
+            v = Float64[x for x in gfdd[coalesce.(gfdd[!, groupcol] .== g, false) .&
+                                        coalesce.(gfdd.Year .== y, false), indicator]
+                        if x !== missing]
+            push!(means, isempty(v) ? NaN : round(mean(v), digits = 2))
+            push!(counts, length(v))
+        end
+        out[!, g] = means
+        out[!, "n ($g)"] = counts
+    end
+    return out
+end
+
+depth_income = group_means("GFDD.DI.02", :income, INCOME_ORDER, 2000:2014)
+show_all(select(depth_income, :year, INCOME_ORDER...))
+```
+
+```{julia}
+#| label: tbl-depth-income-n
+#| tbl-cap: "Countries reporting deposit money banks' assets to GDP, by income group."
+show_all(select(depth_income, :year, ["n ($g)" for g in INCOME_ORDER]...))
+```
+
+Fifteen years by five groups, and the published table reproduces throughout **except one cell**.
+
+::: {.callout-note}
+## One cell differs from the published table
+
+The book's Solution figure 10.10 gives **63.89** for High income: nonOECD in 2000. This gives
+**63.80**, from the same 25 countries.
+
+```{julia}
+#| label: cell-check
+h = gfdd[coalesce.(gfdd.income .== "High income: nonOECD", false) .&
+         coalesce.(gfdd.Year .== 2000, false) .& .!ismissing.(gfdd[!, "GFDD.DI.02"]), :]
+values = Float64.(h[!, "GFDD.DI.02"])
+
+(countries = length(values),
+ sum = round(sum(values), digits = 3),
+ mean = round(mean(values), digits = 4),
+ sum_needed_for_63_89 = round(63.89 * length(values), digits = 3))
+```
+
+Same count of countries, and 2001 through 2014 all reproduce exactly, as do every other group's
+2000 value. An isolated 0.09 in one cell of a 75-cell table, with the neighbouring years correct,
+is most consistent with a transcription slip in the published figure — but the cause cannot be
+established from here, so it is reported rather than explained.
+:::
+
+```{julia}
+#| label: tbl-access-region
+#| tbl-cap: "Bank accounts per 1,000 adults, simple mean by region. North America reports no values for this indicator in any year."
+const REGIONS = sort(unique(skipmissing(gfdd.Region)))
+access_region = group_means("GFDD.AI.01", :Region, REGIONS, 2000:2014)
+show_all(select(access_region, :year, REGIONS...))
+```
+
+**(b) The trends.**
+
+```{julia}
+#| label: fig-depth-trend
+#| fig-cap: "Deposit money banks' assets to GDP by income group. Income group is an *ordered* variable, so this uses a single-hue sequential ramp from light (low income) to dark (high income) rather than five categorical hues — the ordering is information, and a categorical palette would discard it. Each line is also labelled at its right end, so identity never rests on colour alone."
+ramp = sequential_steps(length(INCOME_ORDER))
+years = depth_income.year
+
+fig = Figure(size = (920, 520))
+ax = Axis(fig[1, 1];
+          title = "The gap between rich and poor banking systems widened, then stalled",
+          xlabel = "Year", ylabel = "Deposit money banks' assets to GDP (%)",
+          limits = ((1999.5, 2019.5), (0, 130)))
+
+for (j, g) in enumerate(INCOME_ORDER)
+    v = depth_income[!, g]
+    lines!(ax, years, v; color = ramp[j], linewidth = 2.5, label = g)
+    text!(ax, 2014.4, v[end]; text = g, fontsize = 10,
+          align = (:left, :center), color = INK_SECONDARY)
+end
+fig
+```
+
+```{julia}
+#| label: fig-access-trend
+#| fig-cap: "Bank accounts per 1,000 adults by region, one panel per region with every other region drawn in grey behind it. Small multiples rather than six coloured lines: six unordered categories sit at the edge of what a single axis can distinguish, and faceting keeps each series to one colour with the others as context."
+plotted = [r for r in REGIONS if !all(isnan, access_region[!, r])]
+
+fig = Figure(size = (960, 520))
+for (k, r) in enumerate(plotted)
+    row, col = fldmod1(k, 3)
+    ax = Axis(fig[row, col];
+              title = r, titlesize = 11,
+              xlabel = row == 2 ? "Year" : "",
+              ylabel = col == 1 ? "Accounts per 1,000 adults" : "",
+              limits = ((1999.5, 2014.5), (0, 1300)))
+    for other in plotted
+        lines!(ax, years, access_region[!, other]; color = GRIDLINE, linewidth = 1.5)
+    end
+    lines!(ax, years, access_region[!, r]; color = series_color(1), linewidth = 2.5)
+end
+fig
+```
+
+**Depth.** The ordering is exactly what the income ranking predicts, and it is remarkably stable:
+high-income OECD systems hold bank assets worth around 90–120% of GDP throughout, low-income
+systems around 15–20%. **The ratio between top and bottom is roughly six to one and does not
+close over fifteen years.**
+
+The one visible dynamic is the crisis. High-income OECD depth rises through the 2000s, peaks
+around 2009, and then flattens or falls — consistent with balance sheets expanding into 2008 and
+deleveraging after. The low-income series does not show that shape at all, which is the
+substantive point: **these systems were not deep enough to be part of the crisis**.
+
+**Access.** The regional picture is one of broad convergence from very different starting points.
+Sub-Saharan Africa more than triples over the period. Europe and Central Asia rises fastest in
+absolute terms. Every region rises, and none reverses.
+
+Two cautions the tables make visible and the charts hide:
+
+- **North America has no observations at all** for bank accounts per 1,000 adults, in any year.
+  Its row is absent rather than zero, and a chart that omitted the table would suggest the region
+  had no bank accounts.
+- **The country counts move between years**, so part of any year-on-year change is composition
+  rather than change within countries. A region's mean can rise because a well-banked country
+  started reporting.
+
+### Q4. Weighted against simple averages {#p1-q4}
+
+A simple average across countries treats Luxembourg and China as equally informative about the
+region. Weighting by population asks a different question: what is the average *person*'s access?
+
+**(a) and (b) Constructing the weights**, using population only over countries with a
+non-missing indicator value, so the weights sum to one within each region-year.
+
+```{julia}
+#| label: weights
+function weighted_by_population(indicator, groupcol, group, year)
+    mask = coalesce.(gfdd[!, groupcol] .== group, false) .&
+           coalesce.(gfdd.Year .== year, false) .&
+           .!ismissing.(gfdd[!, indicator]) .& .!ismissing.(gfdd[!, "SP.POP.TOTL"])
+    sub = gfdd[mask, :]
+    nrow(sub) == 0 && return (value = NaN, n = 0, weight_sum = NaN)
+    w = Float64.(sub[!, "SP.POP.TOTL"])
+    w ./= sum(w)
+    return (value = sum(w .* Float64.(sub[!, indicator])), n = nrow(sub), weight_sum = sum(w))
+end
+
+# The check the question asks for: weights must sum to 1 within a region-year.
+check = weighted_by_population("GFDD.AI.01", :Region, "Europe & Central Asia", 2010)
+(countries = check.n, weight_sum = check.weight_sum, weighted_average = round(check.value, digits = 2))
+```
+
+**(c) The weighted averages.**
+
+```{julia}
+#| label: tbl-weighted
+#| tbl-cap: "Population-weighted mean bank accounts per 1,000 adults, by region. Reproduces the book's Solution figure 10.17. North America is absent because the indicator has no observations there."
+weighted_table = DataFrame(year = collect(2004:2014))
+for r in plotted
+    weighted_table[!, r] = [round(weighted_by_population("GFDD.AI.01", :Region, r, y).value,
+                                 digits = 2) for y in 2004:2014]
+end
+show_all(weighted_table)
+```
+
+Every value matches the published table.
+
+**(d) Comparison with the simple averages.**
+
+```{julia}
+#| label: tbl-weighted-vs-simple
+#| tbl-cap: "Weighted minus simple mean bank accounts per 1,000 adults, 2014. A negative gap means the region's populous countries have poorer access than its small ones."
+comparison = DataFrame(region = plotted)
+comparison.simple = [round(access_region[access_region.year .== 2014, r][1], digits = 2)
+                     for r in plotted]
+comparison.weighted = [weighted_table[weighted_table.year .== 2014, r][1] for r in plotted]
+comparison.gap = round.(comparison.weighted .- comparison.simple, digits = 2)
+sort!(comparison, :gap)
+comparison
+```
+
+```{julia}
+#| label: fig-weighted-vs-simple
+#| fig-cap: "Simple against population-weighted mean bank accounts per 1,000 adults, 2014. Two series, so the averaging method carries the colour; bars are dodged with a surface gap. Both are means of the same observations, so they share one axis legitimately."
+fig = Figure(size = (900, 500))
+ax = Axis(fig[1, 1];
+          title = "Weighting by population moves East Asia most, and downward",
+          ylabel = "Bank accounts per 1,000 adults, 2014",
+          xticks = (1:nrow(comparison), comparison.region),
+          xticklabelrotation = pi / 7,
+          limits = (nothing, (0, 1300)))
+for (j, (col, lab)) in enumerate([(:simple, "Simple mean"), (:weighted, "Population-weighted")])
+    barplot!(ax, (1:nrow(comparison)) .+ (j == 1 ? -0.19 : 0.19), comparison[!, col];
+             width = 0.34, color = series_color(j), label = lab)
+end
+Legend(fig[0, 1], ax; orientation = :horizontal, framevisible = false)
+fig
+```
+
+**East Asia and Pacific is the case that makes the point.** Its simple mean in 2014 is about 863
+accounts per 1,000 adults; its population-weighted mean is **106**. Weighting by population cuts
+it by a factor of eight, because the region's small, well-banked economies count the same as
+China and Indonesia under a simple average and almost nothing under a weighted one.
+
+**The direction of the gap identifies where the population lives.** Where the weighted mean is
+lower, the populous countries have worse access than the small ones — East Asia, and South Asia.
+Where it is higher, as in Latin America and the Caribbean, the large countries are the
+better-banked ones and the small Caribbean states pull the simple average down.
+
+Neither is the "right" average; they answer different questions. **The simple mean describes the
+typical country; the weighted mean describes the typical person.** For "how far has financial
+inclusion spread", the weighted mean is the relevant one, and it is far less flattering: the
+unweighted series suggests East Asian access approaching European levels, and the weighted series
+does not.
+
+One artefact worth flagging: the East Asian weighted series jumps from 253.86 in 2004 to 336.63
+in 2005 and then **falls to 81.43 in 2006**. A change that large in a population-weighted mean is
+a change in *which* populous country reports, not a change in banking. The weights make the
+series highly sensitive to the entry and exit of large countries.
+
+### Q5. Winsorization {#p1-q5}
+
+Extreme values are real here, so dropping them would discard the financial centres that make the
+distribution interesting. Winsorization instead **replaces** anything beyond a percentile with
+the percentile value, keeping every country in the calculation.
+
+```{julia}
+#| label: winsorize
+year2010 = gfdd[coalesce.(gfdd.Year .== 2010, false) .&
+                .!ismissing.(gfdd[!, "GFDD.AI.01"]), :]
+values2010 = Float64.(year2010[!, "GFDD.AI.01"])
+p5, p95 = quantile(values2010, [0.05, 0.95])
+year2010.winsorized = clamp.(values2010, p5, p95)
+
+(countries = length(values2010),
+ p5 = round(p5, digits = 2), p95 = round(p95, digits = 2),
+ below_p5 = count(<(p5), values2010), above_p95 = count(>(p95), values2010))
+```
+
+**(a)** The 5th percentile is **27.59** accounts per 1,000 adults and the 95th is **1,604.69**,
+both matching the book.
+
+**(b) and (c)** Averages before and after, by income group.
+
+```{julia}
+#| label: tbl-winsorized
+#| tbl-cap: "Bank accounts per 1,000 adults in 2010, simple mean before and after Winsorizing at the 5th and 95th percentiles. Reproduces the book's Solution figure 10.18."
+wins_table = DataFrame(income_group = String[], n = Int[], raw = Float64[],
+                       winsorized = Float64[], change = Float64[])
+for g in INCOME_ORDER
+    s = year2010[coalesce.(year2010.income .== g, false), :]
+    nrow(s) == 0 && continue
+    raw = mean(Float64.(s[!, "GFDD.AI.01"]))
+    push!(wins_table, (g, nrow(s), round(raw, digits = 2),
+                       round(mean(s.winsorized), digits = 2),
+                       round(mean(s.winsorized) - raw, digits = 2)))
+end
+wins_table
+```
+
+**All five Winsorized values match the published table exactly.** The raw column is where the two
+diverge, and one of the book's figures cannot be right.
+
+::: {.callout-warning}
+## The published non-Winsorized average for Upper middle income is arithmetically impossible
+
+Solution figure 10.18 gives Upper middle income a 2010 average of **643.92** before Winsorizing
+and **635.71** after. This page gets **634.92** before and the same **635.71** after.
+
+The Winsorized figures agreeing to the cent means both calculations use the same 22 countries.
+So the raw means should agree too — and the direction of the change settles which is right:
+
+```{julia}
+#| label: winsor-direction
+umi = year2010[coalesce.(year2010.income .== "Upper middle income", false), :]
+umi_values = Float64.(umi[!, "GFDD.AI.01"])
+
+(countries = length(umi_values),
+ below_p5 = round.(umi_values[umi_values .< p5], digits = 2),
+ above_p95 = round.(umi_values[umi_values .> p95], digits = 2),
+ raw_mean = round(mean(umi_values), digits = 4),
+ winsorized_mean = round(mean(clamp.(umi_values, p5, p95)), digits = 4),
+ shift = round(mean(clamp.(umi_values, p5, p95)) - mean(umi_values), digits = 4),
+ shift_implied_by_643_92 = round(635.71 - 643.92, digits = 4))
+```
+
+Exactly one Upper middle income country falls below the 5th percentile, at 10.28 accounts per
+1,000 adults, and **none is above the 95th**. Winsorization can therefore only move this mean
+*upward* — it raises that single value to 27.59 and leaves the other 21 untouched, adding
+(27.59 − 10.28) ÷ 22 ≈ **+0.79**.
+
+So the raw mean must be 635.71 − 0.79 = **634.92**. For 643.92 to be the raw mean, Winsorizing
+would have to *lower* the average by 8.21, which requires values above the 95th percentile that
+this group does not have. **643.92 is a digit transposition of 634.92.**
+:::
+
+**What Winsorization does, and the book's summary of it is too strong.** The published note says
+"the simple averages of Winsorized values are lower." That holds for three groups and **fails for
+two**:
+
+- **High income: OECD** falls from 1,590.47 to 1,356.47, a drop of 234 — this group has the
+  values above the 95th percentile, so pulling the upper tail in moves it a long way.
+- **Low income** *rises*, from 121.95 to 123.06, and **Upper middle income** rises from 634.92 to
+  635.71.
+
+Winsorization pulls in **both** tails. It lowers a mean when the group's mass beyond the 95th
+percentile outweighs its mass below the 5th, and raises it otherwise. Poor countries sit in the
+low tail, so for them the procedure is a correction upward. Describing it as a downward
+adjustment gets the mechanism backwards for exactly the groups where financial access is worst.
+
+Note also **n = 4** for High income: OECD. Only four OECD high-income countries report this
+indicator in 2010, so that 234-point change rests on a handful of observations.
+
+## Part 10.2 — Financial stability before and after 2008 {#part-10.2}
+
+### Q1. What post-crisis regulation should have done to each indicator {#p2-q1}
+
+The regulatory response — Basel III above all, phased in from 2013, plus national measures like
+Dodd-Frank — was aimed squarely at bank loss absorption.
+
+- **Bank regulatory capital to risk-weighted assets should rise**, and this is close to a
+  mechanical prediction rather than a behavioural one. Basel III raised minimum capital ratios,
+  added a conservation buffer and a countercyclical buffer, and tightened what counts as capital.
+  The indicator *is* the regulated quantity, so if the rules bound at all, it increases.
+- **Bank Z-score should also rise, but less reliably.** It combines capitalisation with return on
+  assets and the volatility of returns: $Z = (\text{ROA} + \text{equity/assets}) \div
+  \sigma(\text{ROA})$. Higher capital raises it, so the same regulation pushes in the same
+  direction. But two of its three inputs work against that. Higher capital requirements
+  **reduce return on equity**, and the post-crisis period was one of compressed margins and
+  unusually low interest rates, which lowers ROA. Whether Z rises depends on which effect
+  dominates.
+
+So the sharp prediction is on the capital ratio; the Z-score is ambiguous *ex ante*. That
+distinction matters for reading the results, because a null on the Z-score is not evidence
+against the regulation working.
+
+### Q2. Differences between 2007 and 2014, with confidence intervals {#p2-q2}
+
+Comparing each region's and income group's mean in 2014 against 2007. The groups are different
+sets of countries in the two years, so these are independent-sample comparisons, as the book's
+`t.test` treats them.
+
+```{julia}
+#| label: tbl-stability
+#| tbl-cap: "Difference in mean stability indicator between 2014 and 2007, with 95% confidence intervals from Welch's t-test. Reproduces the book's R walk-through 10.6 output for GFDD.SI.05 by region."
+function difference_table(indicator, groupcol, groups)
+    out = DataFrame(group = String[], n_2007 = Int[], n_2014 = Int[], difference = Float64[],
+                    lower = Float64[], upper = Float64[], width = Float64[],
+                    excludes_zero = Bool[])
+    for g in groups
+        pick(y) = Float64[v for v in gfdd[coalesce.(gfdd[!, groupcol] .== g, false) .&
+                                          coalesce.(gfdd.Year .== y, false), indicator]
+                          if v !== missing]
+        before, after = pick(2007), pick(2014)
+        (length(before) < 2 || length(after) < 2) && continue
+        t = UnequalVarianceTTest(after, before)
+        lo, hi = confint(t)
+        push!(out, (g, length(before), length(after), round((lo + hi) / 2, digits = 3),
+                    round(lo, digits = 3), round(hi, digits = 3), round((hi - lo) / 2, digits = 3),
+                    lo > 0 || hi < 0))
+    end
+    return out
+end
+
+capital_region = difference_table("GFDD.SI.05", :Region, REGIONS)
+capital_region
+```
+
+The seven rows match the walk-through's printed output to eight decimal places.
+
+```{julia}
+#| label: tbl-stability-rest
+#| tbl-cap: "The same comparison for the capital ratio by income group, and for the Bank Z-score by region and by income group."
+capital_income = difference_table("GFDD.SI.05", :income, INCOME_ORDER)
+zscore_region = difference_table("GFDD.SI.01", :Region, REGIONS)
+zscore_income = difference_table("GFDD.SI.01", :income, INCOME_ORDER)
+
+combined = vcat(
+    insertcols(capital_region, 1, :indicator => "Capital ratio", :cut => "Region"),
+    insertcols(capital_income, 1, :indicator => "Capital ratio", :cut => "Income group"),
+    insertcols(zscore_region, 1, :indicator => "Bank Z-score", :cut => "Region"),
+    insertcols(zscore_income, 1, :indicator => "Bank Z-score", :cut => "Income group"))
+show_all(combined)
+```
+
+### Q3. Has stability improved? {#p2-q3}
+
+**(a) The four comparisons with their intervals.**
+
+```{julia}
+#| label: fig-stability
+#| fig-cap: "Change in each stability indicator from 2007 to 2014, with 95% confidence intervals. Four panels because the two indicators are in different units and the two groupings are different populations; one series each, so one colour. The rule at zero is what every interval is read against."
+panels = [("Capital ratio, by region", capital_region, "Percentage points"),
+          ("Capital ratio, by income group", capital_income, "Percentage points"),
+          ("Bank Z-score, by region", zscore_region, "Z-score points"),
+          ("Bank Z-score, by income group", zscore_income, "Z-score points")]
+
+fig = Figure(size = (980, 760))
+for (k, (title, tab, unit)) in enumerate(panels)
+    row, col = fldmod1(k, 2)
+    ax = Axis(fig[row, col];
+              title = title, titlesize = 12,
+              ylabel = unit,
+              xticks = (1:nrow(tab), tab.group), xticklabelrotation = pi / 5,
+              xticklabelsize = 9)
+    hlines!(ax, [0]; color = BASELINE, linewidth = 1)
+    barplot!(ax, 1:nrow(tab), tab.difference; width = 0.5, color = series_color(1))
+    errorbars!(ax, 1:nrow(tab), tab.difference, tab.difference .- tab.lower,
+               tab.upper .- tab.difference;
+               color = INK_SECONDARY, whiskerwidth = 10, linewidth = 2)
+end
+fig
+```
+
+**(b) What the results support.**
+
+**The capital ratio rose, and the clearest evidence is in the income-group cut rather than the
+regional one.** All seven regions have a positive point estimate but only **Europe and Central
+Asia** excludes zero, at **+2.73 points [0.71, 4.75]** — the region with the most observations,
+and the one containing most of the banks Basel III was written for.
+
+By income group the result is stronger and more interpretable. **Both high-income groups show a
+measurable increase**: High income: OECD **+4.79 points [3.12, 6.45]** and High income: nonOECD
+**+2.23 [0.24, 4.21]**. Neither of the three lower-income groups does, and Lower middle income is
+actually negative at −1.34 [−4.49, 1.82].
+
+That pattern is what the regulation predicts. Basel III bound on the banking systems of advanced
+economies, and it is those systems whose capital ratios moved. The OECD estimate is both the
+largest and the most precisely measured of the twelve comparisons here.
+
+**Where the intervals are useless, they are spectacularly so.** North America gives **+0.50
+[−11.69, 12.69]** on two observations per year, and Low income gives **−0.58 [−14.23, 13.08]** on
+four and six. Both intervals are wider than the entire plausible range of the ratio, which
+typically sits between 10 and 20. A point estimate reported without them would be meaningless.
+
+**The Z-score shows no improvement anywhere.** Five of seven regions have negative point
+estimates, none of the seven intervals excludes zero, and the same holds for all five income
+groups. Given [Q1](#p2-q1) that is the expected result rather than a puzzle: capital rose, but
+returns fell and the Z-score divides by the volatility of returns, so the three inputs pull
+against each other.
+
+So the honest summary is narrow but not empty. **Regulatory capital measurably increased in the
+high-income banking systems the rules targeted, by nearly five percentage points in the OECD.
+There is no evidence that estimated distance-to-default improved anywhere** — and those two
+statements are consistent, because they measure different things.
+
+Four reasons not to read more into it than that:
+
+1. **Composition changes.** The countries reporting in 2014 are not the countries reporting in
+   2007 — Sub-Saharan Africa has 41 observations in 2007 and 15 in 2014 on the Z-score. A
+   difference of means across two different samples confounds change with who showed up.
+2. **Two years, not a trend.** 2007 and 2014 are single years, each with its own conditions.
+   2007 is the pre-crisis peak, which makes it a demanding baseline for capital and a flattering
+   one for returns.
+3. **Basel III was still phasing in.** The framework's timetable ran to 2019, so 2014 catches
+   part of the adjustment.
+4. **Rising capital is not the same as a safer system.** The Z-score's blind spot from
+   [Q1](#p1-q1) is interconnectedness, and neither indicator here measures it. A system can hold
+   more capital and remain vulnerable to the correlation of its exposures, which is what
+   propagated the 2008 crisis.
+
+## What this project covered
+
+| Concept | Where | In Julia |
+|---|---|---|
+| Reading one sheet of a large workbook | Setup | `XLSX.readtable(path, "Data - June 2016")` |
+| Coercing mixed number/blank columns | Setup | `num.(col)` with `tryparse` |
+| Box and whisker plots | Q10.1 Q2 | `boxplot!(ax, fill(1, n), v)` |
+| Outliers by the 1.5 IQR rule | Q10.1 Q2 | count beyond `q1 - 1.5iqr`, `q3 + 1.5iqr` |
+| Small multiples on a free scale | Q10.1 Q2 | one `Axis` per panel via `fldmod1` |
+| Sequential ramp for an ordered group | Q10.1 Q3 | `sequential_steps(5)`, not `series_color` |
+| Weighted mean | Q10.1 Q4 | normalise weights, then `sum(w .* x)` |
+| Winsorizing at percentiles | Q10.1 Q5 | `clamp.(v, p5, p95)` |
+| Difference in means with a CI | Q10.2 Q2 | `UnequalVarianceTTest`, `confint` |
+| Stacking labelled result tables | Q10.2 Q2 | `insertcols` then `vcat` |
+| Grey-context small multiples | Q10.1 Q3 | draw all series grey, then one in colour |
+
+The [R → Julia page](../../reference/r-to-julia.qmd) has the full translation table.

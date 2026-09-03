@@ -1,4 +1,4 @@
-# data/raw IS committed - 20 MB, and it makes the repository work offline and
+# data/raw IS committed - 39 MB, and it makes the repository work offline and
 # outlive its sources. Project 5's upstream (the GCIP site) is already gone; the
 # copy here is the only reliable one. Provenance is in data/MANIFEST.toml.
 #
