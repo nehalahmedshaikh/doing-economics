@@ -614,3 +614,54 @@ The book's Question 3(b) says to pick "one or two other indicators that are dire
 related to the policy", suggesting degree of prosperity or degree of equality. CORE's own \
 Python implementation uses performance in improving people's livelihood, and this is the \
 file it saves under this name, so that is the indicator used here."""
+
+[[file]]
+project = 14
+name = "carbon-tax-uk-survey"
+dest = "14/carbon-tax-hope.xlsx"
+url = "https://books.core-econ.org/doing-economics/downloads/dataset_hope-et-al_simplified.xlsx"
+description = """
+UK survey experiment on carbon taxation: 2,997 respondents, nine variables, from Hope, \
+Limberg and Steinebach (2026), "Unequal Treatment Perceptions and Rural Backlashes \
+Against Carbon Taxation". Two sheets, "Data dictionary" and "Data". 1,481 respondents \
+were given an information treatment and 1,516 were not."""
+publisher = "Hope, Limberg and Steinebach (2026), simplified extract distributed by CORE Econ"
+licence = "Redistributed by CORE Econ for teaching use"
+stable = true
+vintage = "2026-09-03"
+sha256 = "db070553371f911e9d6efe38e8f2de8dbc4e5c024d824f0613ca1b0a43473630"
+notes = """
+THE PROJECT TEXT DESCRIBES THE SUPPORT SCALE BACKWARDS. The book says carbon_tax_support \
+runs "from 1 for strongly oppose to 5 for strongly support". The data dictionary in the \
+spreadsheet says the opposite - 1 is strongly support, 5 is strongly oppose - and the \
+dictionary is right. The book's own dummy definition confirms it: it codes 1 or 2 as \
+"strongly support or support".
+
+Taking the question text at face value inverts every result while leaving the arithmetic \
+looking sound, so the page checks the frequency counts against the published table.
+
+unequal_treatment is ALREADY reverse-coded in the file, as the dictionary states: high \
+values mean the respondent perceives more unequal treatment by the state. It does not \
+need reversing again.
+
+Missing values are blank cells. Coding them as zero would recruit every non-respondent \
+into "does not support", so they stay missing throughout."""
+
+[[file]]
+project = 13
+name = "nber-us-recession-quarterly"
+dest = "13/USRECQ.csv"
+url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=USRECQ"
+description = """
+NBER-based quarterly US recession indicator from FRED: 673 quarters, 1854 Q4 to 2022 Q4. \
+1 marks a quarter the NBER dates as a recession, 0 an expansion."""
+publisher = "National Bureau of Economic Research, via FRED (Federal Reserve Bank of St. Louis)"
+licence = "Public domain (US federal government / NBER business cycle dates)"
+stable = false
+vintage = "2026-09-03"
+sha256 = "f1dc88cc3f36ab234fc93688b9310dee5ebd0c10f281b1ac22bb75872ac1f3f0"
+notes = """
+Marked `stable = false`: FRED revises and extends this series as the NBER dates new \
+turning points, so the checksum records what was used rather than enforcing it.
+
+Column headers are `observation_date` and `USRECQ`."""

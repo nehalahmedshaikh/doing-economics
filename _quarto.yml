@@ -59,6 +59,8 @@ website:
             text: "11. Willingness to pay"
           - href: projects/12-hong-kong-handout/index.qmd
             text: "12. Hong Kong cash handout"
+          - href: projects/14-carbon-taxation/index.qmd
+            text: "Extra 2. Carbon taxation"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd
