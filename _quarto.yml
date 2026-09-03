@@ -55,6 +55,8 @@ website:
             text: "9. Credit-excluded households"
           - href: projects/10-banking-systems/index.qmd
             text: "10. Banking systems"
+          - href: projects/11-willingness-to-pay/index.qmd
+            text: "11. Willingness to pay"
       - section: "Reference"
         contents:
           - href: reference/r-to-julia.qmd

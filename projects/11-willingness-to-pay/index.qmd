@@ -1,0 +1,708 @@
+---
+title: "11. Measuring willingness to pay for climate change mitigation"
+subtitle: "What 1,512 Germans said they would pay, and how much the question format changed the answer"
+engine: julia
+julia:
+  exeflags: ["--project=@."]
+---
+
+A German government-sponsored internet survey, 1,512 respondents, asking what people would pay
+each year for climate mitigation. Half were asked a **dichotomous choice** question — would you
+pay €X, yes or no — and half a **two-way payment ladder**, naming the most they would certainly
+pay and the least they would certainly refuse.
+
+The point of the design is that both groups were asked about the same policy. Any difference in
+the answers is a property of the *question*, not of what people want.
+
+- **[Part 11.1](#part-11.1)** — summarizing the data
+- **[Part 11.2](#part-11.2)** — comparing willingness to pay across methods
+
+New concepts: **contingent valuation**, **Likert scales** and reverse-coding, index construction,
+and **Cronbach's alpha** for whether several questions measure one thing. Book pages:
+[project](https://books.core-econ.org/doing-economics/book/text/11-01.html),
+[R walk-through](https://books.core-econ.org/doing-economics/book/text/11-03.html),
+[solutions](https://books.core-econ.org/doing-economics/book/text/11-04.html).
+
+```{julia}
+#| label: setup
+#| output: false
+using XLSX, DataFrames
+using Statistics
+using HypothesisTests, Distributions
+using CairoMakie
+using DoingEconomics
+
+CairoMakie.activate!(type = "svg")
+use_doingecon_theme!()
+```
+
+::: {.callout-important}
+## This workbook needs a different reader
+
+`XLSX.readtable` fails on this file:
+
+```
+KeyError: key "xl/worksheets/sheet2.xml" not found
+```
+
+The file is **strict OOXML** — the ISO variant of the xlsx format — and XLSX.jl's
+strict-to-transitional conversion path cannot handle it, even though the sheet it names is
+present in the archive. `XLSX.readxlsx` opens it fine, so reading the sheet as a matrix and
+building the frame by hand works:
+
+```{julia}
+#| label: sheet-frame
+"""Read a worksheet as a DataFrame, taking row 1 as the header.
+
+`XLSX.readtable` cannot open this workbook (strict OOXML), but `readxlsx` can, and
+indexing a sheet with `[:]` gives the full cell matrix.
+"""
+function sheet_frame(path, name)
+    cells = XLSX.readxlsx(path)[name][:]
+    return DataFrame([cells[2:end, j] for j in axes(cells, 2)],
+                     Symbol.(string.(cells[1, :])); makeunique = true)
+end
+
+path = rawpath("11", "climate-wtp.xlsx")
+survey = sheet_frame(path, "Data")
+(rows = nrow(survey), columns = ncol(survey))
+```
+
+One consequence to watch: empty cells come back as `nothing` rather than `missing` on this
+path, so the numeric coercion below has to handle both.
+:::
+
+```{julia}
+#| label: dictionary
+dictionary = sheet_frame(path, "Data dictionary")
+show_all(dictionary)
+```
+
+```{julia}
+#| label: coerce
+"""Numeric value, or `missing` for blanks and anything non-numeric.
+
+`tryparse` returns `nothing` on failure, which would silently overwrite text columns
+with `nothing` if returned directly.
+"""
+function num(x)
+    (x === missing || x === nothing) && return missing
+    x isa Number && return Float64(x)
+    parsed = tryparse(Float64, string(x))
+    return parsed === nothing ? missing : parsed
+end
+
+const SCALE_ITEMS = ["scepticism_2", "scepticism_6", "scepticism_7",
+                     "cog_1", "cog_2", "cog_3", "cog_4", "cog_5", "cog_6",
+                     "PN_1", "PN_2", "PN_3", "PN_4", "PN_6", "PN_7"]
+for col in vcat(SCALE_ITEMS, ["WTP_plmin", "WTP_plmax", "costs", "education"])
+    survey[!, col] = num.(survey[!, col])
+end
+
+(format_values = unique(string.(survey.abst_format)),
+ sex_values = unique(string.(survey.sex)),
+ dc_outcomes = unique(string.(survey.DC_ref_outcome)))
+```
+
+`abst_format` splits the sample: `"ref"` is the dichotomous-choice group and `"ladder"` the
+payment ladder.
+
+# Part 11.1 — Summarizing the data {#part-11.1}
+
+## Q1. What contingent valuation can and cannot measure {#p1-q1}
+
+Contingent valuation asks people what they *would* pay for something not traded in a market.
+Nothing here is revealed behaviour — every number is a statement about a hypothetical. Four
+limitations bite particularly hard on this survey.
+
+**Hypothetical bias.** Nobody was charged anything, so there is no cost to overstating. This is
+the central problem with stated preference and it is not symmetric: the incentive runs toward
+generosity on a socially approved cause. Revealed-preference methods avoid it by construction,
+which is why the comparison table in the valuation literature puts stated preference below
+revealed preference on exactly this axis.
+
+**Social desirability.** Climate protection is a norm-laden topic in Germany, and a respondent
+who thinks the "right" answer is a high number can give one at no cost. This is what makes the
+DC/TWPL comparison in [Part 11.2](#part-11.2) interesting rather than merely methodological:
+the two formats offer different opportunities to express approval, and if the answers differ,
+some of what is being measured is the expression rather than the valuation.
+
+**Scope and embedding insensitivity.** Stated WTP tends not to scale with the size of the thing
+being valued — people name similar amounts for saving 2,000 birds and 200,000. A single
+mitigation target, as here, gives no way to check whether the amounts track the quantity of
+abatement at all.
+
+**Payment vehicle and protest responses.** The survey asks about an annual payment, and the
+`protest_1` to `protest_13` items exist precisely because some respondents reject the *premise*
+rather than valuing the good at zero: "the industry is doing far too little", "wealthier
+households should pay more", "the money should come from existing government revenue". A zero
+from someone who objects to the mechanism is not a zero valuation, and treating the two alike
+biases the mean downward.
+
+The one limitation that matters *less* here is sample representativeness. It is a serious problem
+for estimating a national WTP figure, but the DC-versus-TWPL comparison is internal to the
+sample, and both groups were drawn the same way.
+
+## Q2. Recoding {#p1-q2}
+
+**(a) Reverse-coding.** Attitudes came on a 1–5 Likert scale, but the statements do not all point
+the same way. `scepticism_6` is "climate change is mainly caused by human activity" — agreeing
+means *less* scepticism, the opposite of `scepticism_2` ("the dangers are generally
+exaggerated"). Averaging them as they stand would cancel the signal rather than accumulate it.
+
+```{julia}
+#| label: reverse-code
+# Reversing on a 1-5 scale maps 1<->5 and 2<->4, which is 6 - x.
+const REVERSED = ["cog_2", "cog_5", "scepticism_6", "scepticism_7"]
+for col in REVERSED
+    survey[!, col] = [v === missing ? missing : 6.0 - v for v in survey[!, col]]
+end
+
+DataFrame(item = REVERSED,
+          statement = [only(dictionary[dictionary[!, 1] .== c, 2]) for c in REVERSED],
+          new_min = [minimum(skipmissing(survey[!, c])) for c in REVERSED],
+          new_max = [maximum(skipmissing(survey[!, c])) for c in REVERSED])
+```
+
+**(b) Ladder categories into euros.** `WTP_plmin` and `WTP_plmax` hold category numbers 1–14, not
+amounts. The survey's actual figures:
+
+```{julia}
+#| label: euro-amounts
+const EURO_AMOUNT = Dict(1 => 48.0, 2 => 72.0, 3 => 84.0, 4 => 108.0, 5 => 156.0,
+                         6 => 192.0, 7 => 252.0, 8 => 324.0, 9 => 432.0, 10 => 540.0,
+                         11 => 720.0, 12 => 960.0, 13 => 1200.0, 14 => 1440.0)
+
+to_euro(v) = v === missing ? missing : get(EURO_AMOUNT, Int(v), missing)
+survey.min_euro = to_euro.(survey.WTP_plmin)
+survey.max_euro = to_euro.(survey.WTP_plmax)
+
+DataFrame(category = 1:14, euro_per_year = [EURO_AMOUNT[k] for k in 1:14],
+          step_ratio = [k == 1 ? missing : round(EURO_AMOUNT[k] / EURO_AMOUNT[k-1], digits = 3)
+                        for k in 1:14])
+```
+
+**The categories are roughly geometric, not linear.** Each step is about 1.2 to 1.5 times the
+one below, so the ladder spans €48 to €1,440 — a factor of 30 — in fourteen steps. That matters
+for [Part 11.2](#part-11.2): a mean taken over these amounts is sensitive to the top categories
+in a way a mean over evenly spaced options would not be, because the top rungs are far apart.
+
+## Q3. Three indices {#p1-q3}
+
+Each index is the row mean of its items, using the reverse-coded versions where relevant.
+
+```{julia}
+#| label: indices
+const INDEX_ITEMS = [
+    "climate" => ["scepticism_2", "scepticism_6", "scepticism_7"],
+    "gov_intervention" => ["cog_1", "cog_2", "cog_3", "cog_4", "cog_5", "cog_6"],
+    "pro_environment" => ["PN_1", "PN_2", "PN_3", "PN_4", "PN_6", "PN_7"],
+]
+
+for (name, items) in INDEX_ITEMS
+    survey[!, name] = [all(!ismissing(row[c]) for c in items) ?
+                       mean(Float64[row[c] for c in items]) : missing
+                       for row in eachrow(survey)]
+end
+
+DataFrame(index = first.(INDEX_ITEMS),
+          items = [length(i) for (_, i) in INDEX_ITEMS],
+          scored = [count(!ismissing, survey[!, n]) for (n, _) in INDEX_ITEMS],
+          mean = [round(mean(skipmissing(survey[!, n])), digits = 3) for (n, _) in INDEX_ITEMS],
+          min = [minimum(skipmissing(survey[!, n])) for (n, _) in INDEX_ITEMS],
+          max = [maximum(skipmissing(survey[!, n])) for (n, _) in INDEX_ITEMS])
+```
+
+**A naming caution that affects how every later result reads.** After reverse-coding, all three
+`scepticism` items point the same way — *higher means more sceptical*. The book calls this index
+"belief that climate change is a real phenomenon", but as computed a high value is scepticism and
+a low value is belief. Its mean of about 2.3 on a 1–5 scale therefore says this sample is, on
+average, **not** very sceptical. The sign of its correlation with WTP in
+[Part 11.2](#p2-q1) only makes sense read that way.
+
+## Q4. Do the items in each index measure one thing? {#p1-q4}
+
+**(a) Correlations within each index.**
+
+```{julia}
+#| label: tbl-item-correlations
+#| tbl-cap: "Correlation between the items making up each index. Reproduces the book's Solution figures 11.1, 11.2 and 11.3."
+const ITEM_LABELS = Dict(
+    "scepticism_2" => "exaggeration", "scepticism_6" => "not.human.activity",
+    "scepticism_7" => "no.evidence",
+    "cog_1" => "too.much", "cog_2" => "not.pass.laws", "cog_3" => "minimal.intervention",
+    "cog_4" => "not.dictate", "cog_5" => "indiv.freedom",
+    "cog_6" => "personal.responsibility",
+    "PN_1" => "buy.local", "PN_2" => "indiv.impact", "PN_3" => "feel.better",
+    "PN_4" => "public.transport", "PN_6" => "conserve.energy",
+    "PN_7" => "reduce.emissions")
+
+pairs_table = DataFrame(index = String[], item_a = String[], item_b = String[],
+                        correlation = Float64[])
+for (name, items) in INDEX_ITEMS, i in eachindex(items), j in 1:i-1
+    a = Float64.(collect(skipmissing(survey[!, items[i]])))
+    b = Float64.(collect(skipmissing(survey[!, items[j]])))
+    push!(pairs_table, (name, ITEM_LABELS[items[i]], ITEM_LABELS[items[j]],
+                        round(cor(a, b), digits = 2)))
+end
+show_all(pairs_table)
+```
+
+Every pair matches the published tables. **All twenty-four correlations are positive**, which is
+the first thing to check after reverse-coding — a negative entry would mean an item still points
+the wrong way.
+
+**(b) Cronbach's alpha.**
+
+```{julia}
+#| label: tbl-alpha
+#| tbl-cap: "Cronbach's alpha for each index. Computed by `cronbach_alpha` from the shared helpers, which is tested in test/runtests.jl."
+DataFrame(index = first.(INDEX_ITEMS),
+          items = [length(i) for (_, i) in INDEX_ITEMS],
+          alpha = [round(cronbach_alpha(reduce(hcat, [Float64.(collect(skipmissing(survey[!, c])))
+                                                      for c in items])), digits = 4)
+                   for (_, items) in INDEX_ITEMS])
+```
+
+Alpha asks whether items behave like repeated measurements of one quantity:
+
+$$\alpha = \frac{k}{k-1}\left(1 - \frac{\sum_i s_i^2}{s_T^2}\right)$$
+
+where $s_i^2$ is item $i$'s variance and $s_T^2$ the variance of the row totals. If the items
+were independent, the total variance would just be the sum of the item variances and the bracket
+would collapse to zero. The more the items covary, the larger $s_T^2$ grows relative to that sum.
+
+**Two of the three clear the conventional 0.7 threshold, and the climate index does not** —
+0.685, just short. The book describes all the values as "high"; on the usual reading one of them
+is borderline.
+
+The ordering is the informative part, and it tracks item count exactly: the six-item
+`pro_environment` index scores 0.852, the six-item `gov_intervention` index 0.713, and the
+three-item `climate` index 0.685. Three points follow:
+
+- **Alpha rises mechanically with the number of items**, because adding items inflates the total
+  variance faster than the sum of item variances. So the climate index is not necessarily built
+  from worse items — it is built from *fewer*. Its three items correlate 0.39 to 0.46 with each
+  other, which is comparable to several pairs inside the six-item government index.
+- **The 0.7 line is a convention, not a test.** Nothing changes at 0.699. Treating 0.685 as a
+  failure and 0.713 as a success reads far more into the number than it carries, which is why
+  the item correlations above are the more useful diagnostic.
+- **Alpha measures consistency, not validity.** Six questions that all mis-measure the same thing
+  score beautifully. It says the items hang together, not that they capture the concept the index
+  is named after — and [Q3](#p1-q3) already showed this index is named for the opposite of what
+  it counts.
+
+## Q5. Are the two groups comparable on demographics? {#p1-q5}
+
+The whole design rests on this. If the DC and ladder groups differ in who they are, a difference
+in their answers cannot be attributed to the question format.
+
+```{julia}
+#| label: tbl-demographics
+#| tbl-cap: "Composition of the two question-format groups. Reproduces the book's Solution figures 11.4 to 11.9."
+const FORMATS = ["ref" => "DC", "ladder" => "TWPL"]
+group_rows(code) = survey[coalesce.(survey.abst_format .== code, false), :]
+
+function share_table(column, label)
+    out = DataFrame()
+    out[!, label] = String[]
+    for (_, name) in FORMATS
+        out[!, "$name (%)"] = Float64[]
+    end
+    values = sort(unique(string(v) for v in survey[!, column]
+                         if v !== missing && v !== nothing))
+    for v in values
+        row = Any[v]
+        for (code, _) in FORMATS
+            g = group_rows(code)
+            present = [string(x) for x in g[!, column] if x !== missing && x !== nothing]
+            push!(row, round(100 * count(==(v), present) / length(present), digits = 2))
+        end
+        push!(out, row)
+    end
+    return out
+end
+
+vcat(share_table(:sex, "category"), share_table(:age, "category"))
+```
+
+```{julia}
+#| label: group-sizes
+DataFrame(format = last.(FORMATS), code = first.(FORMATS),
+          respondents = [nrow(group_rows(c)) for (c, _) in FORMATS])
+```
+
+**The two groups are close to identical in composition.** Women are 52.29% of the DC group and
+51.78% of the ladder group — a gap of half a percentage point. Every age band matches within
+about half a point too.
+
+Note the group sizes: **1,006 in DC against 506 in the ladder**, so this was a 2:1 split rather
+than an even one. That does not threaten comparability, but it means the ladder estimates rest on
+half as many people and will carry wider intervals.
+
+## Q6. Are the two groups comparable on attitudes? {#p1-q6}
+
+Demographics being balanced does not guarantee attitudes are, and attitudes are the more direct
+threat: a group that happens to care more about climate would pay more regardless of format.
+
+```{julia}
+#| label: tbl-index-balance
+#| tbl-cap: "The three attitude indices by question format. Reproduces the book's Solution figures 11.10, 11.11 and 11.12."
+balance = DataFrame(index = String[], format = String[], mean = Float64[], sd = Float64[],
+                    min = Float64[], max = Float64[], n = Int[])
+for (name, _) in INDEX_ITEMS, (code, label) in FORMATS
+    v = Float64.(collect(skipmissing(group_rows(code)[!, name])))
+    push!(balance, (name, label, round(mean(v), digits = 2), round(std(v), digits = 2),
+                    minimum(v), maximum(v), length(v)))
+end
+balance
+```
+
+Every mean and standard deviation matches the published tables.
+
+**The largest gap between the two groups on any index is 0.08 points on a 1–5 scale**, against
+within-group standard deviations of 0.66 to 0.85. The groups are, for this purpose,
+interchangeable: climate scepticism 2.37 against 2.29, government intervention 3.19 against 3.15,
+personal responsibility 3.01 against 3.03.
+
+Taken with [Q5](#p1-q5), that licenses the whole of Part 11.2. **Any difference in stated WTP
+between these two groups is a property of the question, because the people are the same.** It is
+worth being clear that this is what randomisation buys — and that the check was worth running
+rather than assuming, since the split turned out to be 2:1 rather than even.
+
+# Part 11.2 — Comparing willingness to pay across methods {#part-11.2}
+
+## Q1. The ladder responses {#p2-q1}
+
+**(a) The distribution of the two ladder answers.**
+
+```{julia}
+#| label: fig-ladder
+#| fig-cap: "Distribution of the lowest amount respondents would certainly pay and the lowest they would certainly refuse, over the fourteen ladder categories. Two series, so the question carries the colour; bars are dodged with a surface gap. The horizontal axis is the category number, which is what respondents actually chose — the euro amounts behind it are not evenly spaced."
+ladder = group_rows("ladder")
+counts(col) = [count(v -> v !== missing && Int(v) == k, ladder[!, col]) for k in 1:14]
+min_counts, max_counts = counts(:WTP_plmin), counts(:WTP_plmax)
+
+fig = Figure(size = (920, 500))
+ax = Axis(fig[1, 1];
+          title = "Both answers pile up at the bottom of the ladder",
+          xlabel = "Ladder category (1 = €48 per year, 14 = €1,440)",
+          ylabel = "Respondents",
+          xticks = 1:14)
+for (j, (c, lab)) in enumerate([(min_counts, "Would certainly pay (WTP_plmin)"),
+                                (max_counts, "Would certainly refuse (WTP_plmax)")])
+    barplot!(ax, (1:14) .+ (j == 1 ? -0.19 : 0.19), c;
+             width = 0.34, color = series_color(j), label = lab)
+end
+Legend(fig[0, 1], ax; orientation = :horizontal, framevisible = false)
+fig
+```
+
+```{julia}
+#| label: tbl-ladder
+#| tbl-cap: "Frequency of each ladder category for the two answers."
+DataFrame(category = 1:14, euros = [EURO_AMOUNT[k] for k in 1:14],
+          would_pay = min_counts, would_refuse = max_counts)
+```
+
+**Both distributions are heavily skewed toward the low categories**, and the two are shaped
+differently in a revealing way. The "would certainly pay" answers concentrate hardest at the very
+bottom, while the "would certainly refuse" answers sit higher and are more spread out — which is
+mechanically necessary, since each respondent's refuse-point is above their pay-point, but the
+*size* of the gap is what the design is trying to elicit.
+
+There is visible clustering on particular rungs rather than a smooth decline, which is the
+signature of a categorical instrument: respondents anchor on round-looking options.
+
+**(b) and (c) Average WTP.**
+
+```{julia}
+#| label: twpl-average
+survey.WTP_average = [(a === missing || b === missing) ? missing : (a + b) / 2
+                      for (a, b) in zip(survey.min_euro, survey.max_euro)]
+twpl_wtp = Float64.(collect(skipmissing(survey.WTP_average)))
+
+(respondents = length(twpl_wtp),
+ mean = round(mean(twpl_wtp), digits = 2),
+ median = round(median(twpl_wtp), digits = 2),
+ sd = round(std(twpl_wtp), digits = 2),
+ range = extrema(twpl_wtp))
+```
+
+**Mean €268.53 and median €132.00**, both matching the book. The mean is more than double the
+median, which is the whole story of this variable: a minority naming amounts near the top of the
+ladder drags the average far above the typical respondent. With €48 to €1,440 available and a
+median of €132, most people sat on the bottom few rungs.
+
+Of the 506 ladder respondents, **348 produced a usable average** — the rest either named no
+amount, said they would pay zero, or said they would not vote.
+
+**(d) What predicts willingness to pay.**
+
+```{julia}
+#| label: tbl-wtp-correlations
+#| tbl-cap: "Correlation between average ladder WTP and respondent characteristics. Reproduces the book's R walk-through 11.6 output."
+survey.female = [(s === missing || s === nothing) ? missing :
+                 Float64(lowercase(string(s)) == "female") for s in survey.sex]
+
+wtp_corr = DataFrame(variable = String[], correlation = Float64[], n = Int[])
+for col in [:education, :female, :climate, :gov_intervention, :pro_environment]
+    ok = .!ismissing.(survey.WTP_average) .& .!ismissing.(survey[!, col])
+    push!(wtp_corr, (string(col),
+                     round(cor(Float64.(survey[ok, :WTP_average]),
+                               Float64.(survey[ok, col])), digits = 8), count(ok)))
+end
+wtp_corr
+```
+
+All five reproduce the published values to eight decimals, with one sign difference explained
+below.
+
+**Every correlation is small** — the largest is under 0.19 — so respondent characteristics explain
+very little of what people said they would pay. Within that, the signs are all
+interpretable and all point the same way:
+
+- **Climate scepticism −0.145.** More sceptical respondents would pay less. Recall from
+  [Q3](#p1-q3) that a *high* value on this index is scepticism, so the negative sign is the
+  expected direction, not a puzzle.
+- **Preference for government intervention −0.188**, the strongest of the five. The index is
+  coded so that high means *less* appetite for state action, so people who want government to
+  intervene more would pay more.
+- **Personal responsibility +0.188.** Respondents who feel obliged to act pro-environmentally
+  would pay more.
+- **Education +0.138.** More educated respondents would pay more, which is the usual finding and
+  confounded with income.
+- **Sex −0.037.** Effectively zero.
+
+::: {.callout-note}
+## The sex correlation's sign depends on an arbitrary coding choice
+
+The book prints **+0.03694972**; this gives **−0.03694972** — the same magnitude, opposite sign.
+The variable is text, `"female"` or `"male"`, so turning it into a number requires picking which
+one is 1. Coding female as 1 gives the negative value; coding male as 1 gives the book's.
+
+Neither is wrong, but neither is self-explanatory either, which is the point: a dummy's sign is
+meaningless without stating its coding. This page codes **female = 1**, so the negative
+correlation reads "women stated slightly lower WTP".
+:::
+
+## Q2. The dichotomous-choice demand curve {#p2-q2}
+
+The DC group each saw one amount and voted. Aggregating across the amounts traces out something
+that looks like a demand curve.
+
+**(a) Votes by amount.**
+
+```{julia}
+#| label: tbl-dc-votes
+#| tbl-cap: "Dichotomous-choice votes by the amount offered, as counts and as row percentages. Reproduces the book's Solution figure 11.17."
+const YES = "support referendum and pay"
+const NO = "do not support referendum and no pay"
+const ABSTAIN = "would not vote"
+
+dc = group_rows("ref")
+amounts = sort(unique(skipmissing(dc.costs)))
+votes = DataFrame(euros = Float64[], yes = Int[], no = Int[], abstain = Int[], total = Int[],
+                  pct_yes_abstain_as_no = Float64[], pct_yes_abstain_dropped = Float64[])
+for a in amounts
+    rows = dc[coalesce.(dc.costs .== a, false), :]
+    outcome = [string(v) for v in rows.DC_ref_outcome]
+    y, n, ab = count(==(YES), outcome), count(==(NO), outcome), count(==(ABSTAIN), outcome)
+    push!(votes, (a, y, n, ab, y + n + ab,
+                  round(100 * y / (y + n + ab), digits = 2),
+                  round(100 * y / (y + n), digits = 2)))
+end
+votes
+```
+
+**(b), (c) and (d) The demand curve, both ways of handling abstentions.**
+
+```{julia}
+#| label: fig-demand
+#| fig-cap: "Share voting yes against the annual amount offered, under the two treatments of abstentions. Two series, so the treatment carries the colour, and both are direct-labelled. The horizontal axis is on a log scale because the offered amounts are roughly geometric — on a linear axis the four lowest amounts would be indistinguishable."
+fig = Figure(size = (900, 500))
+ax = Axis(fig[1, 1];
+          title = "Demand falls with price, and how you count abstentions shifts the level",
+          xlabel = "Annual amount offered (€, log scale)",
+          ylabel = "Voting yes (%)",
+          xscale = log10, xticks = (amounts, string.(Int.(amounts))),
+          limits = (nothing, (0, 100)))
+for (j, (col, lab)) in enumerate([(:pct_yes_abstain_as_no, "Abstain counted as no"),
+                                  (:pct_yes_abstain_dropped, "Abstain excluded")])
+    lines!(ax, votes.euros, votes[!, col]; color = series_color(j), linewidth = 2.5)
+    scatter!(ax, votes.euros, votes[!, col]; color = series_color(j))
+    text!(ax, votes.euros[end], votes[!, col][end]; text = lab, fontsize = 10,
+          align = (:right, :top), offset = (-6, -8), color = INK_SECONDARY)
+end
+fig
+```
+
+**The curve slopes down, which is the basic sanity check** — a higher price brings fewer yes
+votes — and it is worth appreciating that this is *not* guaranteed in a contingent-valuation
+survey. Respondents seeing only one amount cannot anchor on the others, so the downward slope is
+evidence that people responded to the price rather than to the topic.
+
+**Two features stand out.** The curve is far from a straight line even on a log axis, and the
+share saying yes does not approach zero at the top amount — a floor of respondents will approve
+any amount, which is what "protest in the other direction" looks like.
+
+**How abstentions are treated shifts the level but not the shape.** Counting them as no is the
+conservative reading: someone who declines to vote has not agreed to pay. Excluding them assumes
+abstainers would have split like those who voted. The two curves stay roughly parallel, so
+**the qualitative conclusion does not depend on the choice** — but the level difference is large
+enough that a WTP estimate read off this curve would.
+
+The conservative treatment is the defensible default here, because the alternative assumes
+abstention is unrelated to price, and the table shows abstention is not evenly spread across
+amounts.
+
+## Q3. Does the question format change the answer? {#p2-q3}
+
+**(a) The two formats side by side.** For DC respondents, willingness to pay is the amount they
+were offered and accepted; for ladder respondents it is the average of their two figures.
+
+```{julia}
+#| label: tbl-format-comparison
+#| tbl-cap: "Willingness to pay by question format. DC uses the offered amount for respondents who voted yes. Reproduces the book's Solution figure 11.21."
+dc_wtp = Float64[row.costs for row in eachrow(dc)
+                 if row.costs !== missing && string(row.DC_ref_outcome) == YES]
+
+comparison = DataFrame(
+    format = ["DC", "TWPL"],
+    n = [length(dc_wtp), length(twpl_wtp)],
+    mean = round.([mean(dc_wtp), mean(twpl_wtp)], digits = 2),
+    sd = round.([std(dc_wtp), std(twpl_wtp)], digits = 2),
+    median = [median(dc_wtp), median(twpl_wtp)])
+comparison
+```
+
+Every value matches the published table: **DC mean €348.19 on 383 respondents, ladder mean
+€268.53 on 348**, with medians of €192 and €132.
+
+**(b) A confidence interval for the difference.**
+
+```{julia}
+#| label: tbl-format-ci
+#| tbl-cap: "95% confidence interval for the difference in mean WTP between the two formats."
+test = UnequalVarianceTTest(dc_wtp, twpl_wtp)
+lower, upper = confint(test)
+
+DataFrame(quantity = ["Difference in means (DC − TWPL)", "Standard error of the difference",
+                      "95% CI lower", "95% CI upper", "95% CI half-width", "p-value"],
+          value = round.([mean(dc_wtp) - mean(twpl_wtp),
+                          sqrt(var(dc_wtp) / length(dc_wtp) + var(twpl_wtp) / length(twpl_wtp)),
+                          lower, upper, (upper - lower) / 2, pvalue(test)], digits = 5))
+```
+
+::: {.callout-warning}
+## The published interval is a 5% confidence interval, not a 95% one
+
+The book reports the interval as **[78.10, 81.21]**, a half-width of 1.55 on a difference of
+79.66, and concludes the difference is "precisely estimated". Its walk-through shows the call
+that produced it:
+
+```r
+t.test(DC_WTP, TWPL_WTP, conf.level = 0.05)$conf.int
+## [1] 78.10141 81.20560
+```
+
+`conf.level` is the **confidence level**, so `0.05` requests a **5%** interval — one designed to
+contain the true difference 5% of the time. It looks precise because it is tiny by construction.
+The intended argument was almost certainly `0.95`; `0.05` is the significance level $\alpha$,
+which is a natural thing to reach for and the opposite of what this parameter wants.
+
+Reproducing both levels from the same data settles it:
+
+```{julia}
+#| label: conf-level-demo
+se = sqrt(var(dc_wtp) / length(dc_wtp) + var(twpl_wtp) / length(twpl_wtp))
+difference = mean(dc_wtp) - mean(twpl_wtp)
+# Welch-Satterthwaite degrees of freedom, as used by both R's t.test and
+# HypothesisTests.UnequalVarianceTTest.
+df = se^4 / ((var(dc_wtp) / length(dc_wtp))^2 / (length(dc_wtp) - 1) +
+             (var(twpl_wtp) / length(twpl_wtp))^2 / (length(twpl_wtp) - 1))
+
+DataFrame(conf_level = [0.95, 0.05],
+          multiplier = round.([quantile(TDist(df), (1 + l) / 2) for l in [0.95, 0.05]],
+                              digits = 6),
+          half_width = round.([quantile(TDist(df), (1 + l) / 2) * se for l in [0.95, 0.05]],
+                              digits = 4),
+          lower = round.([difference - quantile(TDist(df), (1 + l) / 2) * se
+                          for l in [0.95, 0.05]], digits = 4),
+          upper = round.([difference + quantile(TDist(df), (1 + l) / 2) * se
+                          for l in [0.95, 0.05]], digits = 4))
+```
+
+The 5% row reproduces the book's printed bounds. **The real 95% interval is about 31 times
+wider**: roughly [31, 128] against [78.1, 81.2].
+
+Julia will not make this mistake quietly. `confint(test; level = 0.05)` throws
+`coverage level 0.05 not in range (0.5, 1)` — the API rejects a coverage below one half as
+incoherent, where R's `t.test` accepts it and returns an interval. That is a case where the
+stricter interface is worth the inflexibility.
+
+**The direction of the conclusion survives.** The correct interval still excludes zero
+comfortably, so DC really does produce higher stated WTP. What does not survive is the claim
+that the difference is *precisely* estimated, or that "the confidence interval lower bound is a
+long way from 0" in the sense the book means — the lower bound is €31, not €78, and the
+difference could plausibly be anywhere from a third of the ladder mean to half again as much.
+:::
+
+**(c) Medians against means.**
+
+```{julia}
+#| label: tbl-mean-median
+#| tbl-cap: "How much each summary measure moves between question formats."
+DataFrame(measure = ["Mean", "Median"],
+          DC = [comparison.mean[1], comparison.median[1]],
+          TWPL = [comparison.mean[2], comparison.median[2]],
+          difference = [comparison.mean[1] - comparison.mean[2],
+                        comparison.median[1] - comparison.median[2]],
+          ratio = round.([comparison.mean[1] / comparison.mean[2],
+                          comparison.median[1] / comparison.median[2]], digits = 3))
+```
+
+**The mean moves by €79.66 and the median by €60** — but as a proportion the median is the less
+stable of the two here: 1.45 times against 1.30 for the mean. That is worth stating plainly
+because the book concludes the opposite, that "the median is therefore more robust to changes in
+the question format".
+
+On these numbers the median is *not* more robust in relative terms. What is true is the related
+point the book is reaching for: **the median is far less sensitive to the top of the
+distribution**, which is why the DC mean sits at €348 against a median of €192.
+
+**(d) Which should a government use?** The honest answer depends on the question being asked, and
+the two measures answer different ones.
+
+- **The mean is what a budget needs.** Total revenue from a charge is the mean times the number
+  of payers, so if the policy question is "does this fund the abatement", the mean is the
+  relevant statistic. Its weakness is that it is set by the upper tail — a handful of people
+  naming €1,440 move it a long way, and those are exactly the responses most exposed to the
+  hypothetical bias from [Q1](#p1-q1).
+- **The median is what a vote needs.** A referendum at price $p$ passes if more than half the
+  electorate would accept $p$, which is the median WTP by definition. It ignores intensity
+  entirely: someone willing to pay the top ladder amount counts exactly the same as someone a
+  single euro above the median.
+
+Given that the format changes the mean by €80 and neither format's mean can be checked against
+behaviour, **reporting both and the interval around the difference is the defensible course**,
+which is what this page does and what the mislabelled interval obscured.
+
+## What this project covered
+
+| Concept | Where | In Julia |
+|---|---|---|
+| Reading strict OOXML | Setup | `XLSX.readxlsx(path)[sheet][:]`, not `readtable` |
+| Blanks that arrive as `nothing` | Setup | handle `nothing` and `missing` in the coercion |
+| Reverse-coding a Likert item | Q11.1 Q2 | `6 .- x` on a 1–5 scale |
+| Mapping categories to amounts | Q11.1 Q2 | `Dict` lookup with `get(..., missing)` |
+| Row means across chosen columns | Q11.1 Q3 | comprehension over `eachrow` |
+| Cronbach's alpha | Q11.1 Q4 | `cronbach_alpha(items)` from the shared helpers |
+| Composition tables by group | Q11.1 Q5 | shares of each group's non-missing responses |
+| Dummy from a text column | Q11.2 Q1 | state the coding — the sign depends on it |
+| Log axis with named ticks | Q11.2 Q2 | `xscale = log10, xticks = (amounts, labels)` |
+| Difference in means with a CI | Q11.2 Q3 | `UnequalVarianceTTest`, `confint` |
+| Welch degrees of freedom | Q11.2 Q3 | Welch–Satterthwaite, then `quantile(TDist(df), p)` |
+| A coverage level below ½ | Q11.2 Q3 | Julia throws; R's `t.test` accepts it |
+
+The [R → Julia page](../../reference/r-to-julia.qmd) has the full translation table.

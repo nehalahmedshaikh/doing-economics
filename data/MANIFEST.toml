@@ -497,3 +497,36 @@ September 2022 version remains available for anyone wanting current numbers.
 
 Note the sheet naming inside the workbook: the "June 2017" release contains tabs labelled \
 "Data - May 2017" and "Data - June 2016". The book uses the June 2016 tab."""
+
+[[file]]
+project = 11
+name = "climate-wtp-germany"
+dest = "11/climate-wtp.xlsx"
+url = "https://www.core-econ.org/wp-content/uploads/2022/05/doing-economics-datafile-working-in-excel-project-11.xlsx"
+description = """
+German government-sponsored internet survey on willingness to pay for climate change \
+mitigation: 1,512 respondents, 79 variables. Two sheets, "Data dictionary" and "Data". \
+1,006 respondents were asked a dichotomous-choice question and 506 a two-way payment \
+ladder (the abst_format column, "ref" and "ladder")."""
+publisher = "CORE Econ, from the survey described in the authors' Data in Brief paper"
+licence = "Redistributed by CORE Econ for teaching use"
+stable = true
+vintage = "2026-09-03"
+sha256 = "44e62e5dfb09fef3efe88d78696a0b972dac5e596165523970fb9b807526acff"
+notes = """
+This workbook is STRICT OOXML, the ISO variant of xlsx, and XLSX.readtable cannot open \
+it - it fails with `KeyError: key "xl/worksheets/sheet2.xml" not found` inside its \
+strict-to-transitional conversion, even though that entry is present in the archive. \
+XLSX.readxlsx opens it, so the project reads each sheet as a cell matrix with `[:]` and \
+builds the DataFrame by hand.
+
+On that path empty cells come back as `nothing` rather than `missing`, so numeric \
+coercion has to handle both. A `tryparse` that returns its `nothing` directly will \
+silently blank out the text columns.
+
+Willingness-to-pay categories 1-14 are not amounts. The euro values are 48, 72, 84, 108, \
+156, 192, 252, 324, 432, 540, 720, 960, 1200, 1440 - roughly geometric, so a mean over \
+them is sensitive to the top rungs.
+
+Four attitude items need reverse-coding before they can be averaged into an index: cog_2, \
+cog_5, scepticism_6 and scepticism_7."""

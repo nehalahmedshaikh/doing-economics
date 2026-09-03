@@ -18,7 +18,7 @@ for what genuinely repeats.
 """
 module DoingEconomics
 
-using Statistics: mean
+using Statistics: mean, var
 using StatsBase: Histogram, fit
 using DataFrames: DataFrame
 using Downloads: download
@@ -32,6 +32,7 @@ export SERIES, SEQ_BLUE, series_color, sequential_steps
 export doingecon_theme, use_doingecon_theme!
 export gini, lorenz, cumulative_share, decile_shares
 export freqtable_binned, pct_change, index_to, geometric_mean
+export cronbach_alpha
 export show_all
 export sha256_file, fetch_verified
 
@@ -467,6 +468,41 @@ function index_to(x, base_index::Integer; base::Real = 100)
     iszero(anchor) && throw(ArgumentError("base value at index $base_index is zero"))
     return [ismissing(vi) ? missing : base * vi / anchor for vi in v]
 end
+
+"""
+    cronbach_alpha(items)
+
+Cronbach's alpha for a set of scale items, the standard measure of whether several
+survey questions behave like repeated measurements of one underlying thing.
+
+`items` is a matrix or a vector of equal-length vectors, one column per item and one row
+per respondent. With `k` items,
+
+``\\alpha = \\frac{k}{k-1}\\left(1 - \\frac{\\sum_i s_i^2}{s_T^2}\\right)``
+
+where ``s_i^2`` is the variance of item `i` and ``s_T^2`` the variance of the row totals.
+
+It runs from 0 (items unrelated, so their sum is no more reliable than one of them) up to
+1, and can go **negative** when items are negatively correlated — which in practice means
+an item needs reverse-coding before it joins the index. Conventional reading is that 0.7
+is acceptable and 0.8 good, but alpha rises mechanically with `k`, so a long index of
+mediocre items can score well.
+
+Rows with any missing value are dropped, since alpha compares item variances against the
+total variance and those must come from the same respondents.
+"""
+function cronbach_alpha(items::AbstractMatrix)
+    k = size(items, 2)
+    k ≥ 2 || throw(ArgumentError("Cronbach's alpha needs at least 2 items, got $k"))
+    keep = [all(!ismissing, view(items, i, :)) for i in axes(items, 1)]
+    m = Float64.(items[keep, :])
+    size(m, 1) ≥ 2 || throw(ArgumentError("need at least 2 complete rows, got $(size(m, 1))"))
+    total_var = var(vec(sum(m, dims = 2)))
+    iszero(total_var) && throw(ArgumentError("row totals have zero variance; alpha undefined"))
+    return (k / (k - 1)) * (1 - sum(var(view(m, :, j)) for j in 1:k) / total_var)
+end
+
+cronbach_alpha(items::AbstractVector{<:AbstractVector}) = cronbach_alpha(reduce(hcat, items))
 
 # ── tables ────────────────────────────────────────────────────────────────────
 

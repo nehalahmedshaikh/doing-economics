@@ -174,6 +174,39 @@ using DoingEconomics
         end
     end
 
+    @testset "cronbach_alpha" begin
+        # Identical items: every item is the total, so reliability is perfect.
+        x = [1.0, 2, 3, 4, 5, 4, 3, 2]
+        @test cronbach_alpha(hcat(x, x, x)) ≈ 1.0
+
+        # Independent items should sit near zero. Fixed vectors, not random draws,
+        # so the test cannot flake.
+        a = [1.0, 5, 1, 5, 1, 5, 1, 5]
+        b = [1.0, 1, 5, 5, 1, 1, 5, 5]
+        c = [1.0, 5, 5, 1, 5, 1, 1, 5]
+        @test abs(cronbach_alpha(hcat(a, b, c))) < 0.05
+
+        # Negatively correlated items give a negative alpha — the signal that an item
+        # needs reverse-coding before it joins an index. Not *perfectly* opposed: that
+        # makes every row total identical, and alpha is then genuinely undefined
+        # rather than negative, which is what the zero-variance guard below covers.
+        p = [1.0, 2, 3, 4, 5]
+        q = [5.0, 4, 3, 2, 2]      # falls as p rises, but not a perfect mirror
+        @test cronbach_alpha(hcat(p, q)) < 0
+        @test_throws ArgumentError cronbach_alpha(hcat(p, 6.0 .- p))
+
+        # Vector-of-vectors and matrix forms agree.
+        @test cronbach_alpha([a, b, c]) ≈ cronbach_alpha(hcat(a, b, c))
+
+        # Rows with a missing value are dropped, not silently zero-filled.
+        with_gap = Matrix{Union{Missing,Float64}}(hcat(x, x, x))
+        with_gap[3, 2] = missing
+        @test cronbach_alpha(with_gap) ≈ cronbach_alpha(hcat(x, x, x)[setdiff(1:8, 3), :])
+
+        @test_throws ArgumentError cronbach_alpha(reshape([1.0, 2, 3], 3, 1))
+        @test_throws ArgumentError cronbach_alpha(hcat([1.0, 1], [1.0, 1]))
+    end
+
     @testset "show_all" begin
         # Quarto's engine displays results with `:limit => true`, which makes DataFrames
         # elide the middle of a long table. Anything cited in prose has to be visible.

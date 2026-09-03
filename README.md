@@ -37,7 +37,7 @@ Two deliberate departures:
 | 8 | [Measuring the non-monetary cost of unemployment](https://nehalahmedshaikh.github.io/doing-economics/projects/08-unemployment-cost/) | ✅ Done |
 | 9 | [Credit-excluded households in a developing country](https://nehalahmedshaikh.github.io/doing-economics/projects/09-credit-excluded/) | ✅ Done |
 | 10 | [Characteristics of banking systems around the world](https://nehalahmedshaikh.github.io/doing-economics/projects/10-banking-systems/) | ✅ Done |
-| 11 | Measuring willingness to pay for climate change mitigation | Planned |
+| 11 | [Measuring willingness to pay for climate change mitigation](https://nehalahmedshaikh.github.io/doing-economics/projects/11-willingness-to-pay/) | ✅ Done |
 | 12 | Government policies and popularity: Hong Kong cash handout | Planned |
 | 13 | Extra 1: Female labour supply and the macroeconomy | Planned |
 | 14 | Extra 2: The politics of carbon taxation | Planned |
@@ -70,7 +70,8 @@ quarto render projects/01-measuring-climate-change/index.qmd          # data is 
 │   ├── 07-supply-and-demand/index.qmd
 │   ├── 08-unemployment-cost/index.qmd
 │   ├── 09-credit-excluded/index.qmd
-│   └── 10-banking-systems/index.qmd
+│   ├── 10-banking-systems/index.qmd
+│   └── 11-willingness-to-pay/index.qmd
 ├── src/DoingEconomics.jl   shared helpers: paths, chart theme, gini/lorenz,
 │                           frequency tables, index numbers, verified downloads
 ├── data/
