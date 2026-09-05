@@ -39,7 +39,7 @@ Two deliberate departures:
 | 10 | [Characteristics of banking systems around the world](https://nehalahmedshaikh.github.io/doing-economics/projects/10-banking-systems/) | ✅ Done |
 | 11 | [Measuring willingness to pay for climate change mitigation](https://nehalahmedshaikh.github.io/doing-economics/projects/11-willingness-to-pay/) | ✅ Done |
 | 12 | [Government policies and popularity: Hong Kong cash handout](https://nehalahmedshaikh.github.io/doing-economics/projects/12-hong-kong-handout/) | ✅ Done |
-| 13 | Extra 1: Female labour supply and the macroeconomy | Planned |
+| 13 | [Extra 1: Female labour supply and the macroeconomy](https://nehalahmedshaikh.github.io/doing-economics/projects/13-female-labour-supply/) | ✅ Done |
 | 14 | [Extra 2: The politics of carbon taxation](https://nehalahmedshaikh.github.io/doing-economics/projects/14-carbon-taxation/) | ✅ Done |
 
 ## Quickstart
@@ -73,6 +73,7 @@ quarto render projects/01-measuring-climate-change/index.qmd          # data is 
 │   ├── 10-banking-systems/index.qmd
 │   ├── 11-willingness-to-pay/index.qmd
 │   ├── 12-hong-kong-handout/index.qmd
+│   ├── 13-female-labour-supply/index.qmd
 │   └── 14-carbon-taxation/index.qmd
 ├── src/DoingEconomics.jl   shared helpers: paths, chart theme, gini/lorenz,
 │                           frequency tables, index numbers, verified downloads

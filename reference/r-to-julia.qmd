@@ -34,6 +34,9 @@ line the header is on. Off-by-one here silently turns your header row into data.
 | `df[, c("Jun", "Jul", "Aug")]` | `df[:, [:Jun, :Jul, :Aug]]` |
 | `unlist(df[, c("Jun", "Jul")])` | `vec(Matrix(df[:, [:Jun, :Jul]]))` |
 | `merge(a, b)` | `innerjoin(a, b; on = :Year)` |
+| `spread(key = Sex, value = Value)` | `unstack(df, :Sex, :Value)` |
+| `reduce(full_join, frames)` | `reduce((a, b) -> outerjoin(a, b; on = [:Country, :Year]), frames)` |
+| `lag(x)` / `lead(x)` | `vcat(missing, x[1:end-1])` / `vcat(x[2:end], missing)` |
 | `factor(x)` | `categorical(x)` |
 | `cut(x, breaks)` | `cut(x, breaks)` (CategoricalArrays.jl) |
 | `na.rm = TRUE` | `skipmissing(x)` |
@@ -69,6 +72,17 @@ The `mosaic` package's formula interface (`mean(anomaly ~ period)`) is the one i
 direct Julia counterpart. `groupby` + `combine` does the same job more verbosely and more
 explicitly — you name the output column, so a table of grouped statistics arrives already
 labelled.
+
+## Time-series filters
+
+| R | Julia |
+|---|---|
+| `mFilter::hpfilter(x, freq = 6.25)` | solve `(I + λD′D) * trend = x`, then `cycle = x - trend` |
+
+There is no HP-filter package in this project environment. Project 13 implements the standard
+penalized least-squares definition directly: `D` is the second-difference matrix and λ is 6.25
+for annual data. The local helper first checks that years are contiguous; silently filtering a
+series with gaps would pretend irregular observations were equally spaced.
 
 ## Charts
 

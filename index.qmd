@@ -36,7 +36,7 @@ Two departures:
 | 10 | [Characteristics of banking systems around the world](projects/10-banking-systems/index.qmd) | Done |
 | 11 | [Measuring willingness to pay for climate change mitigation](projects/11-willingness-to-pay/index.qmd) | Done |
 | 12 | [Government policies and popularity: Hong Kong cash handout](projects/12-hong-kong-handout/index.qmd) | Done |
-| 13 | Extra 1: Female labour supply and the macroeconomy | Planned |
+| 13 | [Extra 1: Female labour supply and the macroeconomy](projects/13-female-labour-supply/index.qmd) | Done |
 | 14 | [Extra 2: The politics of carbon taxation](projects/14-carbon-taxation/index.qmd) | Done |
 
 ## Getting started

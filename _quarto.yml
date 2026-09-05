@@ -59,6 +59,8 @@ website:
             text: "11. Willingness to pay"
           - href: projects/12-hong-kong-handout/index.qmd
             text: "12. Hong Kong cash handout"
+          - href: projects/13-female-labour-supply/index.qmd
+            text: "Extra 1. Female labour supply"
           - href: projects/14-carbon-taxation/index.qmd
             text: "Extra 2. Carbon taxation"
       - section: "Reference"

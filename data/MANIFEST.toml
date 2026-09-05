@@ -665,3 +665,141 @@ Marked `stable = false`: FRED revises and extends this series as the NBER dates 
 turning points, so the checksum records what was used rather than enforcing it.
 
 Column headers are `observation_date` and `USRECQ`."""
+
+[[file]]
+project = 13
+name = "annual-real-gdp-world-bank"
+dest = "13/gdp-annual-wdi.zip"
+url = "https://databank.worldbank.org/source/world-development-indicators"
+description = """
+Custom World Development Indicators list export of GDP (constant 2015 US dollars; \
+NY.GDP.MKTP.KD) for Germany and the United States, 1960-2025. The ZIP contains the \
+data CSV and the World Bank series-metadata CSV."""
+publisher = "World Bank, World Development Indicators"
+licence = "CC BY 4.0"
+stable = false
+vintage = "2026-09-04"
+sha256 = "4c3b61a55c5cd5ba9e6a0098b35701e2883a4b35f5ad9cc311d0fbc466c0554e"
+manual = true
+instructions = """
+In World Development Indicators select NY.GDP.MKTP.KD, Germany and United States, \
+all years, CSV, and list format; save the downloaded ZIP as 13/gdp-annual-wdi.zip. \
+This is a live database, so later exports may revise earlier observations."""
+
+[[file]]
+project = 13
+name = "lfp-rates-oecd-current"
+dest = "13/lfp-rates-oecd.csv"
+url = "https://data-explorer.oecd.org/"
+description = """
+Annual, calendar-and-seasonally-adjusted labour-force participation rates for Germany \
+and the United States, ages 15-64, for female, male and total populations. The current \
+export covers 1955-2024 for the US and 2005-2025 for Germany."""
+publisher = "OECD Data Explorer"
+licence = "OECD Terms and Conditions; attribution required"
+stable = false
+vintage = "2026-09-04"
+sha256 = "df1afc0ce1aae685cc156f054c75921df89dee87413a50c87236be1afdc841a0"
+manual = true
+instructions = """
+Export filtered CSV from Labour force participation rate: Germany and United States, \
+annual, calendar and seasonally adjusted, female/male/total, ages 15-64."""
+
+[[file]]
+project = 13
+name = "lfp-rates-germany-oecd-archive"
+dest = "13/lfp-rates-germany-oecd-archive.csv"
+url = "https://sdmx.oecd.org/archive/rest/v1/data/OECD,DF_ALFS_POP_LABOUR,1.0/DEU.YT99TLP2_ST.FE+MA+TT.A?startPeriod=1960&endPeriod=2014"
+description = """
+Retired OECD.Stat annual labour-force participation series for Germany, ages 15-64, \
+female, male and all persons, 1960-2014. Retrieved from OECD's official SDMX archive, \
+not from a third-party reconstruction."""
+publisher = "OECD Data Explorer archive (legacy ALFS_POP_LABOUR dataflow)"
+licence = "OECD Terms and Conditions; attribution required"
+stable = true
+vintage = "2026-09-04"
+sha256 = "5e341211c44ca91b6b7a270f7e16cbc1d1c8ce5b812f0c03d041044bde80e40f"
+notes = """
+The current replacement dataflow starts Germany in 2005. In the 2005-2014 overlap, \
+the replacement is 1.4-1.8 percentage points lower on average depending on sex, with \
+a maximum absolute difference of 3.06 points. The two vintages are therefore not \
+silently spliced; this coherent legacy series is used for Germany's historical charts."""
+
+[[file]]
+project = 13
+name = "labour-productivity-oecd"
+dest = "13/labour-productivity-oecd.csv"
+url = "https://data-explorer.oecd.org/"
+description = """
+Annual GDP per hour worked for Germany and the United States, US dollars per hour at \
+PPP, chain-linked volumes rebased to 2020. The current export covers 1991-2025 for \
+Germany and 1987-2025 for the US."""
+publisher = "OECD Data Explorer"
+licence = "OECD Terms and Conditions; attribution required"
+stable = false
+vintage = "2026-09-04"
+sha256 = "b3acca1a94c2768587e42e98832539888d92c442b2f96df092b8a4a8d46a2019"
+manual = true
+instructions = """
+Export filtered CSV from Productivity levels: Germany and United States, annual, GDP \
+per hour worked, US dollars per hour PPP converted, chain-linked volume (rebased), \
+total activities, non-transformed data."""
+
+[[file]]
+project = 13
+name = "usual-weekly-hours-oecd"
+dest = "13/hours-worked-oecd.csv"
+url = "https://data-explorer.oecd.org/"
+description = """
+Average usual weekly hours on the main job for employees aged 15-64 in Germany and the \
+United States, female, male and total, 1979-2025 for the US and 1983-2025 for Germany."""
+publisher = "OECD Data Explorer"
+licence = "OECD Terms and Conditions; attribution required"
+stable = false
+vintage = "2026-09-04"
+sha256 = "077a041265deea1c02af9c4281a42aa5cb7852346d2c94fb597bc53d45969667"
+manual = true
+instructions = """
+Export filtered CSV from Average usual weekly hours worked on the main job: Germany \
+and United States, female/male/total, ages 15-64, employees, total working-time \
+arrangement, main job."""
+
+[[file]]
+project = 13
+name = "quarterly-real-gdp-oecd"
+dest = "13/gdp-quarterly-oecd.csv"
+url = "https://data-explorer.oecd.org/"
+description = """
+Quarterly calendar-and-seasonally-adjusted real GDP for Germany and the United States, \
+PPP-converted US dollars, chain-linked volumes rebased to 2020. Germany starts in 1960 \
+and the US in 1947; the export extends through the incomplete 2026 Q2 year."""
+publisher = "OECD Data Explorer"
+licence = "OECD Terms and Conditions; attribution required"
+stable = false
+vintage = "2026-09-04"
+sha256 = "5e3e623ffa20b171690aa3e0ab402ca0a3e12adfd581e5edfa305468915ba6d6"
+manual = true
+instructions = """
+Export filtered CSV from Quarterly GDP and components - expenditure approach, US \
+dollars: quarterly, Germany and United States, total economy, gross domestic product, \
+chain-linked volume (rebased)."""
+
+[[file]]
+project = 13
+name = "core-project-13-us-snapshot"
+dest = "13/dataset-main-us-2023.xlsx"
+url = "https://books.core-econ.org/doing-economics/downloads/dataset_main_US.xlsx"
+description = """
+CORE's worked US dataset for Extra Empirical Project 1, downloaded for the published \
+solutions in January 2023. Raw columns cover GDP and LFP from 1960, productivity from \
+1970, and hours from 1979, all through 2021; later columns hold derived filter results."""
+publisher = "CORE Econ, from World Bank, OECD and FRED"
+licence = "Redistributed by CORE Econ for teaching use"
+stable = true
+vintage = "2026-09-04"
+sha256 = "d436babf9f5df8f4c42d9ebbc0235bd2afcede6e20235535a59be722865f9fd0"
+notes = """
+Current OECD definitions and coverage no longer reproduce the book's US series. This \
+page uses only the workbook's eleven raw columns, then recomputes every log, trend, \
+cycle, growth rate and statistic in Julia. It never reuses the workbook's derived \
+columns. Germany remains independently constructed from its raw source files."""
